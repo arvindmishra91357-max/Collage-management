@@ -1007,6 +1007,562 @@ const App = {
     } else {
       this.showToast(res.message || 'Failed to reset password.', 'error');
     }
+  },
+
+  // ==================== OFFICIAL PRINT / PDF GENERATION ENGINE ====================
+  generateAttendancePDFDocument(options = {}) {
+    const {
+      subject = 'DBMS',
+      date = 'Today',
+      batch = 'All Batches',
+      facultyName = 'Faculty In-Charge',
+      verificationMethod = 'Dynamic Cryptographic QR (15s Token Rotation) & Geofencing',
+      records = []
+    } = options;
+
+    if (!records || records.length === 0) {
+      this.showToast('No attendance records available to generate PDF.', 'warning');
+      return;
+    }
+
+    // Sort strictly by roll_number ASC
+    const sorted = [...records].sort((a, b) => {
+      const rA = Number(a.roll_number) || 999;
+      const rB = Number(b.roll_number) || 999;
+      return rA - rB;
+    });
+
+    const total = sorted.length;
+    const present = sorted.filter(r => (r.status || '').toUpperCase() === 'PRESENT').length;
+    const absent = sorted.filter(r => (r.status || '').toUpperCase() === 'ABSENT').length;
+    const leave = sorted.filter(r => (r.status || '').toUpperCase() === 'LEAVE').length;
+    const b1Count = sorted.filter(r => r.batch === 'Batch 1').length;
+    const b2Count = sorted.filter(r => r.batch === 'Batch 2').length;
+    const pct = total > 0 ? ((present / total) * 100).toFixed(1) : '0.0';
+
+    const nowStr = new Date().toLocaleString('en-IN', {
+      dateStyle: 'medium',
+      timeStyle: 'short'
+    });
+
+    const docRef = 'MGI-ATT-' + new Date().toISOString().replace(/[-:T]/g, '').substring(0, 8) + '-' + Math.floor(1000 + Math.random() * 9000);
+
+    const printWindow = window.open('', '_blank', 'width=1100,height=920');
+    if (!printWindow) {
+      this.showToast('Please allow pop-ups in your browser to view and download the PDF.', 'warning');
+      return;
+    }
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>MGI_Attendance_Report_${subject}_${date}.pdf</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Outfit:wght@600;700;800;900&family=JetBrains+Mono:wght@600;700&display=swap" rel="stylesheet">
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 9mm 9mm 11mm 9mm;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: #0f172a;
+      background: #ffffff;
+      padding: 14px;
+      font-size: 10px;
+      line-height: 1.38;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .no-print-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      color: #ffffff;
+      padding: 12px 18px;
+      border-radius: 10px;
+      margin-bottom: 16px;
+      box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .no-print-bar .title-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .no-print-bar .badge {
+      background: rgba(37, 99, 235, 0.25);
+      color: #60a5fa;
+      border: 1px solid rgba(59, 130, 246, 0.4);
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .no-print-bar button {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      color: #ffffff;
+      border: none;
+      padding: 8px 18px;
+      border-radius: 8px;
+      font-weight: 800;
+      font-size: 12px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
+      transition: transform 0.15s ease;
+    }
+    .no-print-bar button:hover {
+      transform: translateY(-1px);
+    }
+    .no-print-bar .close-btn {
+      background: #334155;
+      color: #cbd5e1;
+      margin-left: 8px;
+      box-shadow: none;
+    }
+    .no-print-bar .close-btn:hover {
+      background: #475569;
+      color: #ffffff;
+    }
+    @media print {
+      .no-print-bar { display: none !important; }
+      body { padding: 0; }
+      tr { page-break-inside: avoid; }
+      .signatures-block { page-break-inside: avoid; }
+    }
+    .header-card {
+      border: 1.5px solid #1e3a8a;
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-bottom: 12px;
+      background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+      position: relative;
+    }
+    .header-layout {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+    }
+    .logo-seal-box {
+      width: 58px;
+      height: 58px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #1e3a8a;
+      border-radius: 50%;
+      box-shadow: 0 4px 10px rgba(30, 58, 138, 0.25);
+    }
+    .header-text {
+      text-align: center;
+      flex: 1;
+    }
+    .inst-name {
+      font-family: 'Outfit', sans-serif;
+      font-size: 20px;
+      font-weight: 900;
+      color: #1e3a8a;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      line-height: 1.15;
+    }
+    .inst-dept {
+      font-size: 11px;
+      font-weight: 800;
+      color: #0f172a;
+      margin-top: 3px;
+    }
+    .inst-prog {
+      font-size: 10px;
+      font-weight: 600;
+      color: #475569;
+      margin-top: 2px;
+    }
+    .doc-banner {
+      background: #1e3a8a;
+      color: #ffffff;
+      padding: 4px 12px;
+      border-radius: 4px;
+      margin-top: 6px;
+      display: inline-block;
+      font-size: 10.5px;
+      font-weight: 900;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+    }
+    .qr-stamp-box {
+      width: 60px;
+      text-align: center;
+      flex-shrink: 0;
+      font-size: 8px;
+      color: #64748b;
+    }
+    .qr-stamp-icon {
+      width: 44px;
+      height: 44px;
+      margin: 0 auto 2px;
+      border: 1px solid #cbd5e1;
+      border-radius: 4px;
+      padding: 3px;
+      background: #ffffff;
+    }
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 8px 12px;
+      margin-bottom: 12px;
+    }
+    .meta-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .meta-item-label {
+      font-size: 8.5px;
+      font-weight: 800;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .meta-item-val {
+      font-size: 11px;
+      font-weight: 800;
+      color: #0f172a;
+    }
+    .kpi-strip {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .kpi-tile {
+      padding: 7px 10px;
+      border-radius: 6px;
+      text-align: center;
+      border: 1px solid #cbd5e1;
+      background: #f8fafc;
+    }
+    .kpi-tile.kpi-total {
+      background: #eff6ff;
+      border-color: #bfdbfe;
+    }
+    .kpi-tile.kpi-present {
+      background: #dcfce7;
+      border-color: #86efac;
+    }
+    .kpi-tile.kpi-absent {
+      background: #fee2e2;
+      border-color: #fca5a5;
+    }
+    .kpi-tile.kpi-leave {
+      background: #fef3c7;
+      border-color: #fcd34d;
+    }
+    .kpi-tile.kpi-pct {
+      background: #f0fdf4;
+      border-color: #bbf7d0;
+    }
+    .kpi-label {
+      font-size: 8.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+      color: #64748b;
+    }
+    .kpi-num {
+      font-size: 16px;
+      font-weight: 900;
+      line-height: 1.2;
+      margin-top: 2px;
+    }
+    .roster-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 9.5px;
+      margin-bottom: 16px;
+    }
+    .roster-table th {
+      background: #1e3a8a;
+      color: #ffffff;
+      padding: 6px 8px;
+      text-align: left;
+      font-size: 9px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border: 1px solid #1e3a8a;
+      white-space: nowrap;
+    }
+    .roster-table td {
+      padding: 4.5px 7px;
+      border: 1px solid #cbd5e1;
+      vertical-align: middle;
+    }
+    .roster-table tr:nth-child(even) {
+      background: #f8fafc;
+    }
+    .status-pill {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 9px;
+      font-weight: 800;
+      text-align: center;
+      letter-spacing: 0.3px;
+    }
+    .status-present {
+      background: #dcfce7;
+      color: #166534;
+      border: 1px solid #86efac;
+    }
+    .status-absent {
+      background: #fee2e2;
+      color: #991b1b;
+      border: 1px solid #fca5a5;
+    }
+    .status-leave {
+      background: #fef3c7;
+      color: #92400e;
+      border: 1px solid #fcd34d;
+    }
+    .batch-badge {
+      display: inline-block;
+      padding: 1.5px 6px;
+      border-radius: 4px;
+      font-size: 8.5px;
+      font-weight: 700;
+    }
+    .batch-1 { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+    .batch-2 { background: #f5f3ff; color: #6d28d9; border: 1px solid #ddd6fe; }
+    .cert-box {
+      background: #f8fafc;
+      border-left: 3.5px solid #1e3a8a;
+      padding: 6px 12px;
+      margin-bottom: 18px;
+      font-size: 8.5px;
+      color: #475569;
+      line-height: 1.35;
+      page-break-inside: avoid;
+    }
+    .signatures-block {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 26px;
+      padding: 0 16px;
+      page-break-inside: avoid;
+    }
+    .sig-box {
+      text-align: center;
+      width: 180px;
+    }
+    .sig-line {
+      border-top: 1.5px dashed #475569;
+      margin-bottom: 5px;
+    }
+    .sig-name {
+      font-size: 10px;
+      font-weight: 800;
+      color: #1e3a8a;
+    }
+    .sig-title {
+      font-size: 8.5px;
+      color: #64748b;
+    }
+    .doc-footer {
+      margin-top: 18px;
+      padding-top: 8px;
+      border-top: 1px solid #e2e8f0;
+      display: flex;
+      justify-content: space-between;
+      font-size: 8px;
+      color: #94a3b8;
+    }
+  </style>
+</head>
+<body>
+  <div class="no-print-bar">
+    <div class="title-group">
+      <span class="badge">Official PDF Document</span>
+      <strong>📄 MGI Attendance Register: ${subject} (${date})</strong>
+      <span style="font-size:11px; color:#cbd5e1;">(${total} Enrolled • Present: ${present} | Absent: ${absent})</span>
+    </div>
+    <div>
+      <button onclick="window.print()">🖨️ Save as PDF / Print</button>
+      <button class="close-btn" onclick="window.close()">✕ Close</button>
+    </div>
+  </div>
+
+  <div class="header-card">
+    <div class="header-layout">
+      <div class="logo-seal-box">
+        <svg viewBox="0 0 512 512" width="34" height="34">
+          <path d="M256 40 L440 110 C440 330 256 440 256 470 C256 440 72 330 72 110 Z" fill="none" stroke="#ffffff" stroke-width="28" />
+          <circle cx="256" cy="220" r="38" fill="#38bdf8" />
+          <path d="M256 260 L256 360 M230 310 L282 310" stroke="#38bdf8" stroke-width="20" stroke-linecap="round" />
+        </svg>
+      </div>
+      <div class="header-text">
+        <div class="inst-name">MISHRA GROUP INSTITUTE</div>
+        <div class="inst-dept">Faculty of Engineering & Technology • Department of Computer Science & Engineering</div>
+        <div class="inst-prog">B.Tech (Cyber Security) • 3rd Semester • Class Division: <strong>3CYBER7</strong> • Academic Year 2026–27</div>
+        <div class="doc-banner">OFFICIAL ATTENDANCE REGISTER & VERIFICATION REPORT</div>
+      </div>
+      <div class="qr-stamp-box">
+        <div class="qr-stamp-icon">
+          <svg viewBox="0 0 24 24" width="36" height="36" fill="#1e3a8a">
+            <path d="M3 3h8v8H3zm2 2v4h4V5zm8-2h8v8h-8zm2 2v4h4V5zM3 13h8v8H3zm2 2v4h4v-4zm13-2h3v3h-3zm-5 2h3v3h-3zm2 3h3v3h-3zm3 0h3v3h-3z"/>
+          </svg>
+        </div>
+        <strong>VERIFIED</strong>
+      </div>
+    </div>
+  </div>
+
+  <div class="meta-grid">
+    <div class="meta-item">
+      <span class="meta-item-label">Subject</span>
+      <span class="meta-item-val" style="color:#1d4ed8;">${subject}</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-item-label">Lecture Date</span>
+      <span class="meta-item-val">${date}</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-item-label">Batch Scope</span>
+      <span class="meta-item-val">${batch}</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-item-label">Faculty In-Charge</span>
+      <span class="meta-item-val">${facultyName}</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-item-label">Ref ID / Generated</span>
+      <span class="meta-item-val" style="font-size:9.5px; font-family:monospace;">${docRef}</span>
+    </div>
+  </div>
+
+  <div class="kpi-strip">
+    <div class="kpi-tile kpi-total">
+      <div class="kpi-label" style="color:#1e3a8a;">Total Enrolled</div>
+      <div class="kpi-num" style="color:#1e3a8a;">${total}</div>
+    </div>
+    <div class="kpi-tile kpi-present">
+      <div class="kpi-label" style="color:#166534;">Verified Present</div>
+      <div class="kpi-num" style="color:#166534;">${present}</div>
+    </div>
+    <div class="kpi-tile kpi-absent">
+      <div class="kpi-label" style="color:#991b1b;">Recorded Absent</div>
+      <div class="kpi-num" style="color:#991b1b;">${absent}</div>
+    </div>
+    <div class="kpi-tile kpi-leave">
+      <div class="kpi-label" style="color:#92400e;">Leave / Excused</div>
+      <div class="kpi-num" style="color:#92400e;">${leave}</div>
+    </div>
+    <div class="kpi-tile kpi-pct">
+      <div class="kpi-label" style="color:#047857;">Attendance Rate</div>
+      <div class="kpi-num" style="color:#047857;">${pct}%</div>
+    </div>
+  </div>
+
+  <table class="roster-table">
+    <thead>
+      <tr>
+        <th style="width:36px; text-align:center;">Sr.</th>
+        <th style="width:48px; text-align:center;">Roll No</th>
+        <th style="width:96px;">UG ID</th>
+        <th>Student Full Name</th>
+        <th style="width:72px; text-align:center;">Batch</th>
+        <th style="width:80px;">Subject</th>
+        <th style="width:84px; text-align:center;">Attendance Status</th>
+        <th style="width:130px;">Verification Method</th>
+        <th>Remarks</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${sorted.map((r, idx) => {
+        const sRoll = (r.roll_number && Number(r.roll_number) > 0) ? r.roll_number : (idx + 1);
+        const sName = r.student_name || 'Student';
+        const sBatch = r.batch || (Number(sRoll) <= 30 ? 'Batch 1' : 'Batch 2');
+        const sStatus = (r.status || 'ABSENT').toUpperCase();
+        const sMethod = r.marked_by === 'Student' || r.remarks?.includes('QR')
+          ? 'Live QR Scan Verified'
+          : (sStatus === 'PRESENT' ? (r.marked_by || 'Faculty Verified') : 'Unscanned / Absent');
+
+        return `
+        <tr>
+          <td style="text-align:center; font-weight:700; color:#64748b;">${idx + 1}</td>
+          <td style="text-align:center; font-weight:800; color:#1e3a8a;">#${sRoll}</td>
+          <td><span style="font-family:'JetBrains Mono', monospace; font-weight:700; color:#0284c7;">${r.ug_id}</span></td>
+          <td style="font-weight:700; color:#0f172a; text-transform:uppercase;">${sName}</td>
+          <td style="text-align:center;">
+            <span class="batch-badge ${sBatch === 'Batch 1' ? 'batch-1' : 'batch-2'}">${sBatch}</span>
+          </td>
+          <td><strong>${r.subject || subject}</strong></td>
+          <td style="text-align:center;">
+            <span class="status-pill status-${sStatus.toLowerCase()}">
+              ● ${sStatus}
+            </span>
+          </td>
+          <td style="color:#334155; font-size:9px;">${sMethod}</td>
+          <td style="color:#64748b; font-size:9px;">${r.remarks || (sStatus === 'PRESENT' ? 'Session Present' : 'Did not scan QR (Absent)')}</td>
+        </tr>`;
+      }).join('')}
+    </tbody>
+  </table>
+
+  <div class="cert-box">
+    <strong>INSTITUTIONAL ACCREDITATION & INTEGRITY DECLARATION:</strong> This document certifies the authenticated attendance roster for B.Tech Cyber Security (Division 3CYBER7). All present marks correspond directly to verified dynamic QR cryptographic rotation tokens or instructor roll call authorizations. Any unauthorized alteration or falsification invalidates this official register.
+  </div>
+
+  <div class="signatures-block">
+    <div class="sig-box">
+      <div class="sig-line"></div>
+      <div class="sig-name">${facultyName}</div>
+      <div class="sig-title">Subject Faculty / Course Instructor</div>
+    </div>
+    <div class="sig-box">
+      <div class="sig-line"></div>
+      <div class="sig-name">Prof. Class Coordinator</div>
+      <div class="sig-title">Division 3CYBER7 Coordinator</div>
+    </div>
+    <div class="sig-box">
+      <div class="sig-line"></div>
+      <div class="sig-name">Head of Department (HOD)</div>
+      <div class="sig-title">Dept. of Computer Science & Engineering</div>
+    </div>
+  </div>
+
+  <div class="doc-footer">
+    <span>Document Ref: ${docRef} • Mishra Group Institute</span>
+    <span>Generated: ${nowStr} • System Engine: Antigravity MGI Core</span>
+    <span>Page 1 of 1 • Official Academic Record</span>
+  </div>
+
+  <script>
+    window.addEventListener('load', function() {
+      setTimeout(function() {
+        window.print();
+      }, 450);
+    });
+  </script>
+</body>
+</html>`;
+
+    printWindow.document.open();
+    printWindow.document.write(html);
+    printWindow.document.close();
   }
 };
 

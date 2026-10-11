@@ -1273,16 +1273,17 @@ const AdminApp = {
         <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(56,189,248,0.28); border-radius:12px; padding:16px 18px; margin-bottom:18px;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:8px;">
             <label for="admin-quick-roll-input" style="font-size:13px; font-weight:800; color:#38bdf8; display:flex; align-items:center; gap:6px; margin:0;">
-              <span>⌨️</span> Enter Present Roll Number (Press ENTER)
+              <span>⌨️</span> Bulk Roll Numbers / Present Entry (Admin)
+              <span style="font-size:11px; font-weight:700; color:#10b981; background:rgba(16,185,129,0.14); border:1px solid rgba(16,185,129,0.3); padding:2px 8px; border-radius:10px; margin-left:6px;">⚡ Auto-Ticks Instantly (Zero Refresh)</span>
             </label>
             <div style="font-size:11.5px; color:var(--text-muted);">
-              Shortcuts: <kbd style="background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; font-family:monospace; color:#38bdf8;">ENTER</kbd> Add Roll &bull; <kbd style="background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; font-family:monospace; color:#38bdf8;">Ctrl+Z</kbd> Undo &bull; <kbd style="background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; font-family:monospace; color:#38bdf8;">ESC</kbd> Clear
+              Shortcuts: <kbd style="background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; font-family:monospace; color:#38bdf8;">ENTER</kbd> Clear/Confirm &bull; <kbd style="background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; font-family:monospace; color:#38bdf8;">Ctrl+Z</kbd> Undo &bull; <kbd style="background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; font-family:monospace; color:#38bdf8;">ESC</kbd> Clear
             </div>
           </div>
 
           <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
             <div style="flex:1; min-width:240px;">
-              <input type="text" id="admin-quick-roll-input" class="form-control" placeholder="e.g. 17 or bulk paste: 5, 8, 12, 17, 23" autocomplete="off" style="font-size:15px; font-weight:800; padding:10px 14px; border-color:#38bdf8; letter-spacing:0.5px;" />
+              <input type="text" id="admin-quick-roll-input" class="form-control" placeholder="Type or paste rolls: e.g. 1, 2, 5, 8, 12, 17 or ranges 1-10 (Auto-ticks instantly)" autocomplete="off" style="font-size:14.5px; font-weight:800; padding:10px 14px; border-color:#38bdf8; letter-spacing:0.4px;" />
             </div>
             <button type="button" class="btn-primary" onclick="AdminApp.submitAdminQuickRollInput()" style="padding:10px 18px; font-size:13px; font-weight:800; width:auto; margin:0; background:linear-gradient(135deg, #0ea5e9, #2563eb);">
               ↵ Mark Present
@@ -1428,16 +1429,16 @@ const AdminApp = {
     tableBox.innerHTML = `
       <table class="data-table" style="font-size:12.5px; width:100%; border-collapse:collapse;">
         <thead>
-          <tr style="position:sticky; top:0; background:var(--bg-glass-strong); z-index:2;">
-            <th style="width:45px; text-align:center;">
-              <input type="checkbox" id="admin-quick-master-cb" title="Toggle All Present / Absent" onchange="AdminApp.toggleAllAdminQuickCheckbox(this.checked)" style="cursor:pointer; width:16px; height:16px; accent-color:#10b981; vertical-align:middle;" ${allChecked ? 'checked' : ''} />
+          <tr style="position:sticky; top:0; background:rgba(13,20,36,0.96); backdrop-filter:blur(10px); z-index:2; border-bottom:1.5px solid var(--border-color);">
+            <th style="width:48px; text-align:center; padding:10px 8px;">
+              <input type="checkbox" id="admin-quick-master-cb" class="quick-checkbox" title="Toggle All Present / Absent" onchange="AdminApp.toggleAllAdminQuickCheckbox(this.checked)" ${allChecked ? 'checked' : ''} />
             </th>
-            <th style="width:65px; text-align:center;">Roll</th>
-            <th style="width:120px;">UG ID</th>
-            <th>Student Name</th>
-            <th style="width:85px; text-align:center;">Batch</th>
-            <th style="width:130px; text-align:center;">Status</th>
-            <th style="width:120px; text-align:center;">Action</th>
+            <th style="width:70px; text-align:center; font-size:11px; font-weight:800; letter-spacing:0.6px; color:#94a3b8; text-transform:uppercase;">Roll</th>
+            <th style="width:125px; font-size:11px; font-weight:800; letter-spacing:0.6px; color:#94a3b8; text-transform:uppercase;">UG ID</th>
+            <th style="font-size:11px; font-weight:800; letter-spacing:0.6px; color:#94a3b8; text-transform:uppercase;">Student Name</th>
+            <th style="width:90px; text-align:center; font-size:11px; font-weight:800; letter-spacing:0.6px; color:#94a3b8; text-transform:uppercase;">Batch</th>
+            <th style="width:135px; text-align:center; font-size:11px; font-weight:800; letter-spacing:0.6px; color:#94a3b8; text-transform:uppercase;">Status</th>
+            <th style="width:125px; text-align:center; font-size:11px; font-weight:800; letter-spacing:0.6px; color:#94a3b8; text-transform:uppercase;">Action</th>
           </tr>
         </thead>
         <tbody>
@@ -1446,37 +1447,32 @@ const AdminApp = {
             const status = statusMap[ugKey] || 'ABSENT';
             const isPresent = status === 'PRESENT';
             const isNA = status === 'N/A';
+            const isAbsent = status === 'ABSENT';
             const isLast = lastEnteredRoll === parseInt(s.roll_number, 10);
 
             return `
-              <tr id="admin-quick-row-${ugKey}" style="transition:all 0.2s ease; ${isLast ? 'background:rgba(16,185,129,0.15);' : ''}">
-                <td style="text-align:center;">
-                  <input type="checkbox" class="admin-quick-student-cb" data-ug="${ugKey}" ${isPresent ? 'checked' : ''} onchange="AdminApp.onAdminStudentCheckboxToggle('${ugKey}', this.checked)" style="cursor:pointer; width:16px; height:16px; accent-color:#10b981; vertical-align:middle;" />
+              <tr id="admin-quick-row-${ugKey}" class="quick-table-row ${isPresent ? 'row-present' : (isNA ? 'row-na' : 'row-absent')} ${isLast ? 'row-highlight' : ''}" style="border-bottom:1px solid rgba(255,255,255,0.05);">
+                <td style="text-align:center; padding:9px 8px;">
+                  <input type="checkbox" class="quick-checkbox admin-quick-student-cb" data-ug="${ugKey}" ${isPresent ? 'checked' : ''} onchange="AdminApp.onAdminStudentCheckboxToggle('${ugKey}', this.checked)" title="Click to mark Present/Absent" />
                 </td>
-                <td style="text-align:center; font-weight:800; font-size:13px; color:${isPresent ? '#10b981' : (isNA ? '#fbbf24' : 'var(--text-primary)')};">
+                <td class="quick-roll-cell" style="text-align:center; font-weight:900; font-size:13.5px; color:${isPresent ? '#10b981' : (isNA ? '#fbbf24' : 'var(--text-primary)')};">
                   ${s.roll_number}
                 </td>
-                <td><code style="color:#38bdf8; font-weight:700;">${s.ug_id}</code></td>
-                <td><strong>${s.name}</strong></td>
+                <td><code style="color:#38bdf8; font-weight:800; font-family:'JetBrains Mono', monospace; font-size:12px;">${s.ug_id}</code></td>
+                <td><strong style="color:var(--text-primary); font-size:12.5px; text-transform:uppercase; letter-spacing:0.3px;">${s.name}</strong></td>
                 <td style="text-align:center;">
-                  <span class="badge" style="background:rgba(255,255,255,0.06); font-size:11px;">${s.batch}</span>
+                  <span class="badge" style="background:rgba(255,255,255,0.06); font-size:11px; font-weight:700; border:1px solid rgba(255,255,255,0.1); border-radius:9999px; padding:3px 10px;">${s.batch}</span>
                 </td>
                 <td style="text-align:center;">
-                  <span id="admin-quick-badge-${ugKey}" class="badge" style="cursor:pointer; font-size:11.5px; font-weight:800; padding:5px 12px; border-radius:6px; transition:all 0.15s ease; ${
-                    isPresent
-                      ? 'background:#10b981; color:#fff; box-shadow:0 0 10px rgba(16,185,129,0.4);'
-                      : (isNA
-                          ? 'background:rgba(245,158,11,0.18); color:#fbbf24; border:1px solid rgba(245,158,11,0.45);'
-                          : 'background:rgba(239,68,68,0.12); color:#f87171; border:1px solid rgba(239,68,68,0.3);')
-                  }" onclick="AdminApp.cycleAdminStudentStatus('${ugKey}')" title="Click to cycle status: Present / Absent / N/A">
+                  <span id="admin-quick-badge-${ugKey}" class="quick-badge-pill ${isPresent ? 'badge-present' : (isNA ? 'badge-na' : 'badge-absent')}" onclick="AdminApp.cycleAdminStudentStatus('${ugKey}')" title="Click to cycle status: Present / Absent / N/A">
                     ${isPresent ? 'PRESENT ✅' : (isNA ? 'N/A ➖' : 'ABSENT ❌')}
                   </span>
                 </td>
                 <td style="text-align:center;">
-                  <div style="display:inline-flex; gap:2px; background:rgba(255,255,255,0.06); padding:2px; border-radius:6px; border:1px solid var(--border-color);">
-                    <button type="button" onclick="AdminApp.setAdminStudentStatus('${ugKey}', 'PRESENT')" title="Mark Present" style="padding:2px 7px; font-size:11px; font-weight:800; border-radius:4px; border:none; cursor:pointer; ${isPresent ? 'background:#10b981; color:#fff;' : 'background:transparent; color:var(--text-muted);'}">P</button>
-                    <button type="button" onclick="AdminApp.setAdminStudentStatus('${ugKey}', 'ABSENT')" title="Mark Absent" style="padding:2px 7px; font-size:11px; font-weight:800; border-radius:4px; border:none; cursor:pointer; ${status === 'ABSENT' ? 'background:#ef4444; color:#fff;' : 'background:transparent; color:var(--text-muted);'}">A</button>
-                    <button type="button" onclick="AdminApp.setAdminStudentStatus('${ugKey}', 'N/A')" title="Mark N/A" style="padding:2px 7px; font-size:11px; font-weight:800; border-radius:4px; border:none; cursor:pointer; ${isNA ? 'background:#f59e0b; color:#fff;' : 'background:transparent; color:var(--text-muted);'}">N/A</button>
+                  <div class="quick-action-group">
+                    <button type="button" class="quick-action-btn btn-action-p ${isPresent ? 'active-p' : ''}" onclick="AdminApp.setAdminStudentStatus('${ugKey}', 'PRESENT')" title="Mark Present">P</button>
+                    <button type="button" class="quick-action-btn btn-action-a ${isAbsent ? 'active-a' : ''}" onclick="AdminApp.setAdminStudentStatus('${ugKey}', 'ABSENT')" title="Mark Absent">A</button>
+                    <button type="button" class="quick-action-btn btn-action-na ${isNA ? 'active-na' : ''}" onclick="AdminApp.setAdminStudentStatus('${ugKey}', 'N/A')" title="Mark N/A">N/A</button>
                   </div>
                 </td>
               </tr>
@@ -1492,69 +1488,127 @@ const AdminApp = {
     }
   },
 
-  submitAdminQuickRollInput() {
-    const input = document.getElementById('admin-quick-roll-input');
+  updateAdminStudentRowDOM(ugKey, status, isHighlight = false) {
+    if (!this.quickAttState) return;
+    const ugClean = (ugKey || '').toUpperCase();
+    const isPresent = status === 'PRESENT';
+    const isNA = status === 'N/A';
+    const isAbsent = status === 'ABSENT';
+
+    const row = document.getElementById(`admin-quick-row-${ugClean}`);
+    if (!row) return;
+
+    row.className = `quick-table-row ${isPresent ? 'row-present' : (isNA ? 'row-na' : 'row-absent')} ${isHighlight ? 'row-highlight' : ''}`;
+
+    const cb = row.querySelector('.admin-quick-student-cb');
+    if (cb) {
+      cb.checked = isPresent;
+    }
+
+    const rollCell = row.querySelector('.quick-roll-cell');
+    if (rollCell) {
+      rollCell.style.color = isPresent ? '#10b981' : (isNA ? '#fbbf24' : 'var(--text-primary)');
+    }
+
+    const badge = document.getElementById(`admin-quick-badge-${ugClean}`);
+    if (badge) {
+      badge.className = `quick-badge-pill ${isPresent ? 'badge-present' : (isNA ? 'badge-na' : 'badge-absent')}`;
+      badge.innerHTML = isPresent ? 'PRESENT ✅' : (isNA ? 'N/A ➖' : 'ABSENT ❌');
+    }
+
+    const btnP = row.querySelector('.btn-action-p');
+    const btnA = row.querySelector('.btn-action-a');
+    const btnNA = row.querySelector('.btn-action-na');
+    if (btnP) btnP.className = `quick-action-btn btn-action-p ${isPresent ? 'active-p' : ''}`;
+    if (btnA) btnA.className = `quick-action-btn btn-action-a ${isAbsent ? 'active-a' : ''}`;
+    if (btnNA) btnNA.className = `quick-action-btn btn-action-na ${isNA ? 'active-na' : ''}`;
+  },
+
+  updateAdminMasterCheckboxState() {
+    const masterEl = document.getElementById('admin-quick-master-cb');
+    if (!masterEl || !this.quickAttState) return;
+    const { students, statusMap } = this.quickAttState;
+    const total = students.length;
+    const presentCount = students.filter(s => (statusMap[s.ug_id.toUpperCase()] || 'ABSENT') === 'PRESENT').length;
+    masterEl.checked = total > 0 && presentCount === total;
+    masterEl.indeterminate = presentCount > 0 && presentCount < total;
+  },
+
+  processAdminQuickRollText(raw, isTyping = false) {
+    if (!raw || !this.quickAttState) return;
     const msgBox = document.getElementById('admin-quick-roll-msg');
-    if (!input || !this.quickAttState) return;
 
-    const raw = input.value.trim();
-    if (!raw) {
-      if (msgBox) {
-        msgBox.innerHTML = `<span style="color:#f59e0b;">⚠️ Please enter a roll number (e.g. 17) or multiple rolls separated by spaces or commas.</span>`;
-      }
-      input.focus();
-      return;
-    }
+    // Parse roll numbers and ranges (e.g. 1-10, 15, 18 22, 20 to 25)
+    const normalized = raw.replace(/\bto\b/gi, '-').replace(/\s*-\s*/g, '-');
+    const tokens = normalized.split(/[,;\s\n\t]+/);
+    const candidateRolls = [];
 
-    const matches = raw.match(/\d+/g);
-    if (!matches || matches.length === 0) {
-      if (msgBox) {
-        msgBox.innerHTML = `<span style="color:#ef4444;">❌ Invalid input. Please enter valid numeric roll numbers.</span>`;
+    tokens.forEach(tok => {
+      tok = tok.trim();
+      if (!tok) return;
+
+      const rangeMatch = tok.match(/^(\d+)[-\.]{1,2}(\d+)$/);
+      if (rangeMatch) {
+        const start = parseInt(rangeMatch[1], 10);
+        const end = parseInt(rangeMatch[2], 10);
+        if (start <= end && (end - start) <= 70) {
+          for (let r = start; r <= end; r++) {
+            candidateRolls.push(r);
+          }
+          return;
+        }
       }
-      input.value = '';
-      input.focus();
-      return;
-    }
+
+      const n = parseInt(tok, 10);
+      if (!isNaN(n) && n > 0) {
+        candidateRolls.push(n);
+      }
+    });
+
+    if (candidateRolls.length === 0) return;
 
     const { students, statusMap, history, batch } = this.quickAttState;
-    const addedPresent = [];
-    const alreadyPresent = [];
-    const invalidRolls = [];
-
     const rollToStudent = new Map();
     students.forEach(s => {
       rollToStudent.set(parseInt(s.roll_number, 10), s);
     });
 
-    matches.forEach(m => {
-      const rollNum = parseInt(m, 10);
-      const student = rollToStudent.get(rollNum);
+    const newlyMarked = [];
+    const alreadyMarked = [];
+    const invalidRolls = [];
 
+    candidateRolls.forEach(rollNum => {
+      const student = rollToStudent.get(rollNum);
       if (!student) {
         invalidRolls.push(rollNum);
       } else {
         const ugKey = student.ug_id.toUpperCase();
         if (statusMap[ugKey] === 'PRESENT') {
-          alreadyPresent.push({ roll: rollNum, name: student.name });
+          alreadyMarked.push({ roll: rollNum, name: student.name });
         } else {
           const prev = statusMap[ugKey] || 'ABSENT';
           statusMap[ugKey] = 'PRESENT';
-          addedPresent.push({ roll: rollNum, name: student.name, ug_id: ugKey });
-          history.push({ action: 'SET_STATUS', roll: rollNum, name: student.name, ug_id: ugKey, prevStatus: prev, newStatus: 'PRESENT' });
+          newlyMarked.push({ roll: rollNum, name: student.name, ug_id: ugKey });
+          history.push({
+            action: 'SET_STATUS',
+            roll: rollNum,
+            name: student.name,
+            ug_id: ugKey,
+            prevStatus: prev,
+            newStatus: 'PRESENT'
+          });
           this.quickAttState.lastEnteredRoll = rollNum;
+          this.updateAdminStudentRowDOM(ugKey, 'PRESENT', true);
         }
       }
     });
 
-    input.value = '';
-    input.focus();
+    if (newlyMarked.length > 0) {
+      this.updateAdminQuickMetrics();
+      this.persistAdminQuickDraft();
+      this.updateAdminMasterCheckboxState();
 
-    this.renderAdminQuickTable();
-    this.updateAdminQuickMetrics();
-    this.persistAdminQuickDraft();
-
-    if (addedPresent.length > 0) {
-      const lastUg = addedPresent[addedPresent.length - 1].ug_id;
+      const lastUg = newlyMarked[newlyMarked.length - 1].ug_id;
       const row = document.getElementById(`admin-quick-row-${lastUg}`);
       if (row) {
         row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -1562,25 +1616,27 @@ const AdminApp = {
     }
 
     if (msgBox) {
-      if (addedPresent.length > 0 && invalidRolls.length === 0 && alreadyPresent.length === 0) {
-        if (addedPresent.length === 1) {
-          msgBox.innerHTML = `<span style="color:#10b981;">✓ Roll <strong>${addedPresent[0].roll}</strong> (${addedPresent[0].name}) marked <strong>PRESENT ✅</strong></span>`;
-        } else {
-          const rollsStr = addedPresent.map(p => p.roll).join(', ');
-          msgBox.innerHTML = `<span style="color:#10b981;">✓ Marked <strong>${addedPresent.length} students PRESENT:</strong> Roll ${rollsStr}</span>`;
-        }
-      } else if (invalidRolls.length > 0 && addedPresent.length === 0) {
-        msgBox.innerHTML = `<span style="color:#ef4444;">❌ Invalid Roll Number: Roll ${invalidRolls.join(', ')} does not exist in <strong>${batch}</strong>.</span>`;
-      } else if (alreadyPresent.length > 0 && addedPresent.length === 0) {
-        msgBox.innerHTML = `<span style="color:#f59e0b;">⚠️ Roll ${alreadyPresent[0].roll} (${alreadyPresent[0].name}) is already marked Present.</span>`;
-      } else {
-        const parts = [];
-        if (addedPresent.length > 0) parts.push(`<span style="color:#10b981;">✓ Marked ${addedPresent.length} Present</span>`);
-        if (alreadyPresent.length > 0) parts.push(`<span style="color:#f59e0b;">⚠️ ${alreadyPresent.length} Already Present</span>`);
-        if (invalidRolls.length > 0) parts.push(`<span style="color:#ef4444;">❌ Invalid: Roll ${invalidRolls.join(', ')}</span>`);
-        msgBox.innerHTML = parts.join(' &bull; ');
+      if (newlyMarked.length > 0) {
+        const rollsList = newlyMarked.map(m => m.roll).join(', ');
+        msgBox.innerHTML = `<span style="color:#10b981; font-weight:800;">⚡ Auto-Ticked PRESENT (${newlyMarked.length}): Roll ${rollsList}</span>`;
+      } else if (invalidRolls.length > 0 && !isTyping) {
+        msgBox.innerHTML = `<span style="color:#ef4444;">❌ Invalid Roll: Roll ${invalidRolls.join(', ')} not in <strong>${batch}</strong>.</span>`;
+      } else if (alreadyMarked.length > 0 && !isTyping) {
+        msgBox.innerHTML = `<span style="color:#f59e0b;">ℹ️ Roll ${alreadyMarked.map(a => a.roll).join(', ')} is already Present.</span>`;
       }
     }
+  },
+
+  submitAdminQuickRollInput() {
+    const input = document.getElementById('admin-quick-roll-input');
+    if (!input || !this.quickAttState) return;
+
+    const raw = input.value.trim();
+    if (raw) {
+      this.processAdminQuickRollText(raw, false);
+    }
+    input.value = '';
+    input.focus();
   },
 
   onAdminStudentCheckboxToggle(ugKey, isChecked) {
@@ -1597,7 +1653,9 @@ const AdminApp = {
     if (!students || students.length === 0) return;
 
     students.forEach(s => {
-      statusMap[s.ug_id.toUpperCase()] = targetStatus;
+      const ugKey = s.ug_id.toUpperCase();
+      statusMap[ugKey] = targetStatus;
+      this.updateAdminStudentRowDOM(ugKey, targetStatus, false);
     });
 
     history.push({
@@ -1618,9 +1676,9 @@ const AdminApp = {
       }
     }
 
-    this.renderAdminQuickTable();
     this.updateAdminQuickMetrics();
     this.persistAdminQuickDraft();
+    this.updateAdminMasterCheckboxState();
 
     const input = document.getElementById('admin-quick-roll-input');
     if (input) input.focus();
@@ -1651,17 +1709,19 @@ const AdminApp = {
     const msgBox = document.getElementById('admin-quick-roll-msg');
     if (msgBox && student) {
       if (targetStatus === 'PRESENT') {
-        msgBox.innerHTML = `<span style="color:#10b981;">✓ Roll <strong>${student.roll_number}</strong> (${student.name}) switched to <strong>PRESENT ✅</strong></span>`;
+        msgBox.innerHTML = `<span style="color:#10b981;">✓ Roll <strong>${student.roll_number}</strong> (${student.name}) marked <strong>PRESENT ✅</strong></span>`;
       } else if (targetStatus === 'N/A') {
-        msgBox.innerHTML = `<span style="color:#fbbf24;">➖ Roll <strong>${student.roll_number}</strong> (${student.name}) switched to <strong>N/A ➖</strong></span>`;
+        msgBox.innerHTML = `<span style="color:#fbbf24;">➖ Roll <strong>${student.roll_number}</strong> (${student.name}) marked <strong>N/A ➖</strong></span>`;
       } else {
-        msgBox.innerHTML = `<span style="color:#f87171;">✕ Roll <strong>${student.roll_number}</strong> (${student.name}) switched to <strong>ABSENT ❌</strong></span>`;
+        msgBox.innerHTML = `<span style="color:#f87171;">✕ Roll <strong>${student.roll_number}</strong> (${student.name}) marked <strong>ABSENT ❌</strong></span>`;
       }
     }
 
-    this.renderAdminQuickTable();
+    // IN-PLACE DOM UPDATE (No table innerHTML recreation!)
+    this.updateAdminStudentRowDOM(ugKey, targetStatus, true);
     this.updateAdminQuickMetrics();
     this.persistAdminQuickDraft();
+    this.updateAdminMasterCheckboxState();
 
     const input = document.getElementById('admin-quick-roll-input');
     if (input) input.focus();
@@ -1694,22 +1754,25 @@ const AdminApp = {
     const last = history.pop();
     if (last.action === 'SET_STATUS' || last.action === 'TOGGLE') {
       statusMap[last.ug_id] = last.prevStatus;
+      this.updateAdminStudentRowDOM(last.ug_id, last.prevStatus, true);
       this.quickAttState.lastEnteredRoll = null;
       if (msgBox) {
-        msgBox.innerHTML = `<span style="color:#38bdf8;">↩ Reverted Roll <strong>${last.roll}</strong> (${last.name}) back to <strong>${last.prevStatus}</strong>.</span>`;
+        msgBox.innerHTML = `<span style="color:#38bdf8;">↩ Reverted Roll <strong>${last.roll}</strong> (${last.name}) to <strong>${last.prevStatus}</strong>.</span>`;
       }
     } else if (last.action === 'BULK_SET') {
       this.quickAttState.students.forEach(s => {
-        statusMap[s.ug_id.toUpperCase()] = 'ABSENT';
+        const ug = s.ug_id.toUpperCase();
+        statusMap[ug] = 'ABSENT';
+        this.updateAdminStudentRowDOM(ug, 'ABSENT', false);
       });
       if (msgBox) {
         msgBox.innerHTML = `<span style="color:#38bdf8;">↩ Undid bulk action. Reset all to <strong>ABSENT</strong>.</span>`;
       }
     }
 
-    this.renderAdminQuickTable();
     this.updateAdminQuickMetrics();
     this.persistAdminQuickDraft();
+    this.updateAdminMasterCheckboxState();
 
     if (input) input.focus();
   },
@@ -1759,15 +1822,43 @@ const AdminApp = {
     const newInput = input.cloneNode(true);
     input.parentNode.replaceChild(newInput, input);
 
+    let typingTimer = null;
+
+    newInput.addEventListener('input', () => {
+      const val = newInput.value;
+      if (!val || !val.trim()) return;
+
+      if (/[,;\s\n\t]/.test(val) || val.includes('-') || val.toLowerCase().includes('to')) {
+        AdminApp.processAdminQuickRollText(val, true);
+      } else {
+        clearTimeout(typingTimer);
+        typingTimer = setTimeout(() => {
+          AdminApp.processAdminQuickRollText(newInput.value, true);
+        }, 350);
+      }
+    });
+
+    newInput.addEventListener('paste', () => {
+      setTimeout(() => {
+        const val = newInput.value;
+        if (val && val.trim()) {
+          AdminApp.processAdminQuickRollText(val, false);
+        }
+      }, 10);
+    });
+
     newInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
+        e.stopPropagation();
+        clearTimeout(typingTimer);
         AdminApp.submitAdminQuickRollInput();
+        return false;
       } else if (e.key === 'Escape') {
         e.preventDefault();
         newInput.value = '';
         const msgBox = document.getElementById('admin-quick-roll-msg');
-        if (msgBox) msgBox.innerHTML = '';
+        if (msgBox) msgBox.innerHTML = '<span style="color:var(--text-muted);">Cleared. Enter roll numbers to mark Present.</span>';
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
         e.preventDefault();
         AdminApp.undoAdminQuickEntry();
@@ -2062,7 +2153,7 @@ const AdminApp = {
       sessions.set(`${todayStr}__DBMS`, new Set());
     }
 
-    // Ensure all 66 students exist for each session so Batch 2 never disappears
+    // Ensure all 66 students exist for each session so absent students are properly marked ABSENT
     sessions.forEach((presentUgids, sessionKey) => {
       const [sessDate, sessSub] = sessionKey.split('__');
       masterStudents.forEach(ms => {
@@ -2075,9 +2166,9 @@ const AdminApp = {
             batch: ms.batch || (ms.roll_number <= 30 ? 'Batch 1' : 'Batch 2'),
             date: sessDate,
             subject: sessSub,
-            status: 'PRESENT',
-            marked_by: 'Admin',
-            remarks: 'Official Roster Sync'
+            status: 'ABSENT',
+            marked_by: 'System',
+            remarks: 'Did not scan QR (Absent)'
           });
         }
       });
@@ -2095,11 +2186,11 @@ const AdminApp = {
             </p>
           </div>
           <div style="display:flex; gap:10px; flex-wrap:wrap;">
-            <button class="btn-primary" onclick="AdminApp.generateAttendancePDF()" style="width:auto; padding:9px 18px; margin-top:0; font-size:13px; font-weight:700; background:linear-gradient(135deg, #2563eb, #1d4ed8); color:#ffffff; box-shadow:0 4px 14px rgba(37,99,235,0.35); display:inline-flex; align-items:center; gap:6px;">
-              🖨️ Print / Save Official PDF
+            <button class="btn-primary" onclick="AdminApp.generateAttendancePDF()" style="width:auto; padding:9px 20px; margin-top:0; font-size:13px; font-weight:800; background:linear-gradient(135deg, #2563eb, #1d4ed8); color:#ffffff; box-shadow:0 4px 14px rgba(37,99,235,0.35); display:inline-flex; align-items:center; gap:8px; border-radius:8px;">
+              📄 Download Official Attendance PDF
             </button>
-            <button class="btn-primary" onclick="AdminApp.exportAttendanceCSV()" style="width:auto; padding:9px 18px; margin-top:0; font-size:13px; font-weight:700; background:linear-gradient(135deg, #10b981, #059669); color:#ffffff; box-shadow:0 4px 14px rgba(16,185,129,0.35); display:inline-flex; align-items:center; gap:6px;">
-              📥 Export Attendance CSV
+            <button class="btn-sec" onclick="AdminApp.exportAttendanceCSV()" style="width:auto; padding:9px 16px; margin-top:0; font-size:12.5px; font-weight:700; display:inline-flex; align-items:center; gap:6px; border-radius:8px;">
+              📊 Export CSV
             </button>
           </div>
         </div>
@@ -2396,9 +2487,9 @@ const AdminApp = {
             student_name: ms.name,
             batch: ms.batch,
             subject: subFilter !== 'ALL' ? subFilter : 'DBMS',
-            status: 'PRESENT',
-            marked_by: 'Admin',
-            remarks: 'Official Roster Sync'
+            status: 'ABSENT',
+            marked_by: 'System',
+            remarks: 'Did not scan QR (Absent)'
           });
         }
       });
@@ -2467,7 +2558,7 @@ const AdminApp = {
     const subFilter = document.getElementById('report-subject-filter')?.value || 'All Subjects';
     const batchFilter = document.getElementById('report-batch-filter')?.value || 'All Batches (Batch 1 & 2)';
 
-    // Ensure complete student coverage from masterStudentsList
+    // Ensure complete student coverage from masterStudentsList, marking unscanned as ABSENT
     if (this.masterStudentsList && this.masterStudentsList.length > 0) {
       const existingUgids = new Set(records.map(r => (r.ug_id || '').toUpperCase()));
       this.masterStudentsList.forEach(ms => {
@@ -2480,9 +2571,9 @@ const AdminApp = {
             batch: ms.batch,
             date: dateFilter !== 'ALL' && dateFilter !== 'All Dates' ? dateFilter : new Date().toISOString().split('T')[0],
             subject: subFilter !== 'ALL' && subFilter !== 'All Subjects' ? subFilter : 'DBMS',
-            status: 'PRESENT',
-            marked_by: 'Admin',
-            remarks: 'Official Roster Sync'
+            status: 'ABSENT',
+            marked_by: 'System',
+            remarks: 'Did not scan QR (Absent)'
           });
         }
       });
@@ -2500,355 +2591,15 @@ const AdminApp = {
       return rA - rB;
     });
 
-    const total = sorted.length;
-    const present = sorted.filter(r => r.status === 'PRESENT').length;
-    const absent = sorted.filter(r => r.status === 'ABSENT').length;
-    const leave = sorted.filter(r => r.status === 'LEAVE').length;
-    const b1Count = sorted.filter(r => r.batch === 'Batch 1').length;
-    const b2Count = sorted.filter(r => r.batch === 'Batch 2').length;
-    const pct = total > 0 ? ((present / total) * 100).toFixed(1) : '100.0';
+    window.App.showToast('Generating official PDF attendance register...', 'info');
 
-    const nowStr = new Date().toLocaleString('en-IN', {
-      dateStyle: 'medium',
-      timeStyle: 'short'
+    window.App.generateAttendancePDFDocument({
+      subject: subFilter !== 'ALL' ? subFilter : 'All Subjects',
+      date: dateFilter !== 'ALL' ? dateFilter : new Date().toISOString().split('T')[0],
+      batch: batchFilter,
+      facultyName: 'Admin Faculty In-Charge',
+      records: sorted
     });
-
-    const printWindow = window.open('', '_blank', 'width=1050,height=900');
-    if (!printWindow) {
-      window.App.showToast('Please allow pop-ups to open the PDF print view.', 'warning');
-      return;
-    }
-
-    const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Attendance_Report_3CYBER7_${subFilter}_${dateFilter}.pdf</title>
-  <style>
-    @page {
-      size: A4 portrait;
-      margin: 8mm 8mm 10mm 8mm;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: 'Segoe UI', -apple-system, Roboto, Helvetica, Arial, sans-serif;
-      color: #0f172a;
-      background: #ffffff;
-      padding: 12px;
-      font-size: 10.5px;
-      line-height: 1.35;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
-    }
-    .no-print-bar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: #0f172a;
-      color: #ffffff;
-      padding: 10px 16px;
-      border-radius: 8px;
-      margin-bottom: 14px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    }
-    .no-print-bar button {
-      background: #10b981;
-      color: #ffffff;
-      border: none;
-      padding: 7px 16px;
-      border-radius: 6px;
-      font-weight: 700;
-      font-size: 12.5px;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .no-print-bar button:hover { background: #059669; }
-    .no-print-bar .close-btn {
-      background: #475569;
-      margin-left: 8px;
-    }
-    .no-print-bar .close-btn:hover { background: #334155; }
-    @media print {
-      .no-print-bar { display: none !important; }
-      body { padding: 0; }
-      tr { page-break-inside: avoid; }
-    }
-    .header-box {
-      text-align: center;
-      border-bottom: 2.5px solid #1e3a8a;
-      padding-bottom: 8px;
-      margin-bottom: 10px;
-    }
-    .institute-title {
-      font-size: 17px;
-      font-weight: 900;
-      color: #1e3a8a;
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
-    }
-    .institute-sub {
-      font-size: 11px;
-      font-weight: 700;
-      color: #334155;
-      margin-top: 2px;
-    }
-    .doc-badge {
-      display: inline-block;
-      margin-top: 5px;
-      padding: 3px 12px;
-      background: #1e3a8a;
-      color: #ffffff;
-      border-radius: 4px;
-      font-size: 10.5px;
-      font-weight: 800;
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
-    }
-    .meta-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 8px;
-      background: #f8fafc;
-      border: 1px solid #cbd5e1;
-      border-radius: 6px;
-      padding: 7px 12px;
-      margin-bottom: 10px;
-      font-size: 10.5px;
-    }
-    .meta-item strong {
-      color: #1e3a8a;
-      display: block;
-      font-size: 9px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    .stats-strip {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: #f1f5f9;
-      border: 1px solid #cbd5e1;
-      border-radius: 6px;
-      padding: 6px 12px;
-      margin-bottom: 10px;
-      font-size: 10.5px;
-      font-weight: 700;
-    }
-    .stats-strip span { display: inline-flex; align-items: center; gap: 4px; }
-    .roster-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 10px;
-      margin-bottom: 14px;
-    }
-    .roster-table th {
-      background: #1e3a8a;
-      color: #ffffff;
-      padding: 5px 6px;
-      text-align: left;
-      font-size: 9.5px;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 0.4px;
-      border: 1px solid #1e3a8a;
-      white-space: nowrap;
-    }
-    .roster-table td {
-      padding: 4px 6px;
-      border: 1px solid #cbd5e1;
-      vertical-align: middle;
-    }
-    .roster-table tr:nth-child(even) {
-      background: #f8fafc;
-    }
-    .status-pill {
-      display: inline-block;
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-size: 9px;
-      font-weight: 800;
-      text-align: center;
-      letter-spacing: 0.3px;
-    }
-    .status-present {
-      background: #dcfce7;
-      color: #166534;
-      border: 1px solid #86efac;
-    }
-    .status-absent {
-      background: #fee2e2;
-      color: #991b1b;
-      border: 1px solid #fca5a5;
-    }
-    .status-leave {
-      background: #fef3c7;
-      color: #92400e;
-      border: 1px solid #fcd34d;
-    }
-    .batch-badge {
-      display: inline-block;
-      padding: 1px 5px;
-      border-radius: 3px;
-      font-size: 8.5px;
-      font-weight: 700;
-    }
-    .batch-1 { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
-    .batch-2 { background: #f5f3ff; color: #6d28d9; border: 1px solid #ddd6fe; }
-    .signatures-block {
-      display: flex;
-      justify-content: space-between;
-      margin-top: 24px;
-      padding: 0 16px;
-      page-break-inside: avoid;
-    }
-    .sig-box {
-      text-align: center;
-      width: 170px;
-    }
-    .sig-line {
-      border-top: 1.5px dashed #64748b;
-      margin-bottom: 4px;
-    }
-    .sig-name {
-      font-size: 10.5px;
-      font-weight: 800;
-      color: #1e3a8a;
-    }
-    .sig-title {
-      font-size: 9px;
-      color: #64748b;
-    }
-  </style>
-</head>
-<body>
-  <div class="no-print-bar">
-    <div style="display:flex; align-items:center; gap:12px;">
-      <strong>📄 Mishra Group Institute • Official Print / PDF View</strong>
-      <span style="font-size:11px; color:#94a3b8;">(${total} Students: Batch 1: ${b1Count} | Batch 2: ${b2Count})</span>
-    </div>
-    <div style="display:flex; align-items:center; gap:8px;">
-      <button onclick="window.print()">🖨️ Print / Save as PDF</button>
-      <button class="close-btn" onclick="window.close()">✕ Close</button>
-    </div>
-  </div>
-
-  <div class="header-box">
-    <div class="institute-title">MISHRA GROUP INSTITUTE</div>
-    <div class="institute-sub">Faculty of Engineering & Technology • Department of Cyber Security</div>
-    <div class="institute-sub">B.Tech Computer Science & Engineering (Cyber Security) • 3rd Semester (Division: 3CYBER7)</div>
-    <div class="doc-badge">OFFICIAL CLASS ATTENDANCE REGISTER • ACADEMIC YEAR 2026–27</div>
-  </div>
-
-  <div class="meta-grid">
-    <div class="meta-item">
-      <strong>Subject</strong>
-      ${subFilter}
-    </div>
-    <div class="meta-item">
-      <strong>Date of Record</strong>
-      ${dateFilter}
-    </div>
-    <div class="meta-item">
-      <strong>Batch Coverage</strong>
-      ${batchFilter}
-    </div>
-    <div class="meta-item">
-      <strong>Generated Timestamp</strong>
-      ${nowStr}
-    </div>
-  </div>
-
-  <div class="stats-strip">
-    <span>Total Registered: <strong>${total}</strong> (Batch 1: ${b1Count} | Batch 2: ${b2Count})</span>
-    <span style="color:#166534;">Present: <strong>${present}</strong></span>
-    <span style="color:#991b1b;">Absent: <strong>${absent}</strong></span>
-    <span style="color:#92400e;">Leave: <strong>${leave}</strong></span>
-    <span style="color:#1e3a8a;">Attendance: <strong>${pct}%</strong></span>
-  </div>
-
-  <table class="roster-table">
-    <thead>
-      <tr>
-        <th style="width:35px; text-align:center;">Sr.</th>
-        <th style="width:50px; text-align:center;">Roll No</th>
-        <th style="width:90px;">UG ID</th>
-        <th>Student Full Name</th>
-        <th style="width:70px; text-align:center;">Batch</th>
-        <th style="width:80px;">Subject</th>
-        <th style="width:75px; text-align:center;">Status</th>
-        <th style="width:80px;">Marked By</th>
-        <th>Remarks</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${sorted.map((r, idx) => {
-        const master = masterMap.get((r.ug_id || '').toUpperCase());
-        const sName = (r.student_name && r.student_name !== 'UNRECORDED' && r.student_name.trim() !== '')
-          ? r.student_name
-          : (master ? master.name : (r.ug_id || 'Student'));
-        const sRoll = (r.roll_number && Number(r.roll_number) > 0)
-          ? r.roll_number
-          : (master ? master.roll_number : (idx + 1));
-        const sBatch = (r.batch && r.batch !== 'Both' && r.batch !== 'UNRECORDED')
-          ? r.batch
-          : (master ? master.batch : (Number(sRoll) <= 30 ? 'Batch 1' : 'Batch 2'));
-        const sStatus = (r.status || 'PRESENT').toUpperCase();
-
-        return `
-        <tr>
-          <td style="text-align:center; font-weight:700; color:#64748b;">${idx + 1}</td>
-          <td style="text-align:center; font-weight:800; color:#1e3a8a;">#${sRoll}</td>
-          <td><span style="font-family:monospace; font-weight:700; color:#0284c7;">${r.ug_id}</span></td>
-          <td style="font-weight:700; color:#0f172a; text-transform:uppercase;">${sName}</td>
-          <td style="text-align:center;">
-            <span class="batch-badge ${sBatch === 'Batch 1' ? 'batch-1' : 'batch-2'}">${sBatch}</span>
-          </td>
-          <td><strong>${r.subject || subFilter}</strong></td>
-          <td style="text-align:center;">
-            <span class="status-pill status-${sStatus.toLowerCase()}">
-              ${sStatus}
-            </span>
-          </td>
-          <td style="color:#475569;">${r.marked_by || 'Admin'}</td>
-          <td style="color:#64748b; font-size:9.5px;">${r.remarks || 'Standard Session'}</td>
-        </tr>`;
-      }).join('')}
-    </tbody>
-  </table>
-
-  <div class="signatures-block">
-    <div class="sig-box">
-      <div class="sig-line"></div>
-      <div class="sig-name">Class Representative</div>
-      <div class="sig-title">Division 3CYBER7</div>
-    </div>
-    <div class="sig-box">
-      <div class="sig-line"></div>
-      <div class="sig-name">Subject Faculty</div>
-      <div class="sig-title">Dept of Cyber Security</div>
-    </div>
-    <div class="sig-box">
-      <div class="sig-line"></div>
-      <div class="sig-name">Head of Department</div>
-      <div class="sig-title">Faculty of Engineering</div>
-    </div>
-  </div>
-
-  <script>
-    window.addEventListener('load', function() {
-      setTimeout(function() {
-        window.print();
-      }, 400);
-    });
-  </script>
-</body>
-</html>`;
-
-    printWindow.document.open();
-    printWindow.document.write(html);
-    printWindow.document.close();
   },
 
   exportAuditLogsCSV() {

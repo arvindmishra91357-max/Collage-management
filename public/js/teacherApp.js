@@ -988,16 +988,17 @@ const TeacherApp = {
         <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(56,189,248,0.28); border-radius:12px; padding:16px 18px; margin-bottom:18px;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:8px;">
             <label for="teacher-quick-roll-input" style="font-size:13px; font-weight:800; color:#38bdf8; display:flex; align-items:center; gap:6px; margin:0;">
-              <span>⌨️</span> Enter Present Roll Number (Press ENTER)
+              <span>⌨️</span> Bulk Roll Numbers / Present Entry
+              <span style="font-size:11px; font-weight:700; color:#10b981; background:rgba(16,185,129,0.14); border:1px solid rgba(16,185,129,0.3); padding:2px 8px; border-radius:10px; margin-left:6px;">⚡ Auto-Ticks Instantly (Zero Refresh)</span>
             </label>
             <div style="font-size:11.5px; color:var(--text-muted);">
-              Shortcuts: <kbd style="background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; font-family:monospace; color:#38bdf8;">ENTER</kbd> Add Roll &bull; <kbd style="background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; font-family:monospace; color:#38bdf8;">Ctrl+Z</kbd> Undo &bull; <kbd style="background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; font-family:monospace; color:#38bdf8;">ESC</kbd> Clear
+              Shortcuts: <kbd style="background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; font-family:monospace; color:#38bdf8;">ENTER</kbd> Clear/Confirm &bull; <kbd style="background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; font-family:monospace; color:#38bdf8;">Ctrl+Z</kbd> Undo &bull; <kbd style="background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; font-family:monospace; color:#38bdf8;">ESC</kbd> Clear
             </div>
           </div>
 
           <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
             <div style="flex:1; min-width:240px;">
-              <input type="text" id="teacher-quick-roll-input" class="form-control" placeholder="e.g. 17 or bulk paste: 5, 8, 12, 17, 23" autocomplete="off" style="font-size:15px; font-weight:800; padding:10px 14px; border-color:#38bdf8; letter-spacing:0.5px;" />
+              <input type="text" id="teacher-quick-roll-input" class="form-control" placeholder="Type or paste rolls: e.g. 1, 2, 5, 8, 12, 17 or ranges 1-10 (Auto-ticks instantly)" autocomplete="off" style="font-size:14.5px; font-weight:800; padding:10px 14px; border-color:#38bdf8; letter-spacing:0.4px;" />
             </div>
             <button type="button" class="btn-primary" onclick="TeacherApp.submitQuickRollInput()" style="padding:10px 18px; font-size:13px; font-weight:800; width:auto; margin:0; background:linear-gradient(135deg, #0ea5e9, #2563eb);">
               ↵ Mark Present
@@ -1146,16 +1147,16 @@ const TeacherApp = {
     tableBox.innerHTML = `
       <table class="table" style="font-size:12.5px; width:100%; border-collapse:collapse;">
         <thead>
-          <tr style="position:sticky; top:0; background:var(--bg-glass-strong); z-index:2;">
-            <th style="width:45px; text-align:center;">
-              <input type="checkbox" id="teacher-quick-master-cb" title="Toggle All Present / Absent" onchange="TeacherApp.toggleAllQuickCheckbox(this.checked)" style="cursor:pointer; width:16px; height:16px; accent-color:#10b981; vertical-align:middle;" ${allChecked ? 'checked' : ''} />
+          <tr style="position:sticky; top:0; background:rgba(13,20,36,0.96); backdrop-filter:blur(10px); z-index:2; border-bottom:1.5px solid var(--border-color);">
+            <th style="width:48px; text-align:center; padding:10px 8px;">
+              <input type="checkbox" id="teacher-quick-master-cb" class="quick-checkbox" title="Toggle All Present / Absent" onchange="TeacherApp.toggleAllQuickCheckbox(this.checked)" ${allChecked ? 'checked' : ''} />
             </th>
-            <th style="width:65px; text-align:center;">Roll</th>
-            <th style="width:120px;">UG ID</th>
-            <th>Student Name</th>
-            <th style="width:85px; text-align:center;">Batch</th>
-            <th style="width:130px; text-align:center;">Status</th>
-            <th style="width:120px; text-align:center;">Action</th>
+            <th style="width:70px; text-align:center; font-size:11px; font-weight:800; letter-spacing:0.6px; color:#94a3b8; text-transform:uppercase;">Roll</th>
+            <th style="width:125px; font-size:11px; font-weight:800; letter-spacing:0.6px; color:#94a3b8; text-transform:uppercase;">UG ID</th>
+            <th style="font-size:11px; font-weight:800; letter-spacing:0.6px; color:#94a3b8; text-transform:uppercase;">Student Name</th>
+            <th style="width:90px; text-align:center; font-size:11px; font-weight:800; letter-spacing:0.6px; color:#94a3b8; text-transform:uppercase;">Batch</th>
+            <th style="width:135px; text-align:center; font-size:11px; font-weight:800; letter-spacing:0.6px; color:#94a3b8; text-transform:uppercase;">Status</th>
+            <th style="width:125px; text-align:center; font-size:11px; font-weight:800; letter-spacing:0.6px; color:#94a3b8; text-transform:uppercase;">Action</th>
           </tr>
         </thead>
         <tbody>
@@ -1164,37 +1165,32 @@ const TeacherApp = {
             const status = statusMap[ugKey] || 'ABSENT';
             const isPresent = status === 'PRESENT';
             const isNA = status === 'N/A';
+            const isAbsent = status === 'ABSENT';
             const isLastEntered = lastEnteredRoll === parseInt(s.roll_number, 10);
 
             return `
-              <tr id="quick-row-${ugKey}" style="transition:all 0.2s ease; ${isLastEntered ? 'background:rgba(16,185,129,0.15);' : ''}">
-                <td style="text-align:center;">
-                  <input type="checkbox" class="teacher-quick-student-cb" data-ug="${ugKey}" ${isPresent ? 'checked' : ''} onchange="TeacherApp.onStudentCheckboxToggle('${ugKey}', this.checked)" style="cursor:pointer; width:16px; height:16px; accent-color:#10b981; vertical-align:middle;" />
+              <tr id="quick-row-${ugKey}" class="quick-table-row ${isPresent ? 'row-present' : (isNA ? 'row-na' : 'row-absent')} ${isLastEntered ? 'row-highlight' : ''}" style="border-bottom:1px solid rgba(255,255,255,0.05);">
+                <td style="text-align:center; padding:9px 8px;">
+                  <input type="checkbox" class="quick-checkbox teacher-quick-student-cb" data-ug="${ugKey}" ${isPresent ? 'checked' : ''} onchange="TeacherApp.onStudentCheckboxToggle('${ugKey}', this.checked)" title="Click to mark Present/Absent" />
                 </td>
-                <td style="text-align:center; font-weight:800; font-size:13px; color:${isPresent ? '#10b981' : (isNA ? '#fbbf24' : 'var(--text-primary)')};">
+                <td class="quick-roll-cell" style="text-align:center; font-weight:900; font-size:13.5px; color:${isPresent ? '#10b981' : (isNA ? '#fbbf24' : 'var(--text-primary)')};">
                   ${s.roll_number}
                 </td>
-                <td><code style="color:#38bdf8; font-weight:700;">${s.ug_id}</code></td>
-                <td><strong>${s.name}</strong></td>
+                <td><code style="color:#38bdf8; font-weight:800; font-family:'JetBrains Mono', monospace; font-size:12px;">${s.ug_id}</code></td>
+                <td><strong style="color:var(--text-primary); font-size:12.5px; text-transform:uppercase; letter-spacing:0.3px;">${s.name}</strong></td>
                 <td style="text-align:center;">
-                  <span class="badge" style="background:rgba(255,255,255,0.06); font-size:11px;">${s.batch}</span>
+                  <span class="badge" style="background:rgba(255,255,255,0.06); font-size:11px; font-weight:700; border:1px solid rgba(255,255,255,0.1); border-radius:9999px; padding:3px 10px;">${s.batch}</span>
                 </td>
                 <td style="text-align:center;">
-                  <span id="quick-badge-${ugKey}" class="badge" style="cursor:pointer; font-size:11.5px; font-weight:800; padding:5px 12px; border-radius:6px; transition:all 0.15s ease; ${
-                    isPresent
-                      ? 'background:#10b981; color:#fff; box-shadow:0 0 10px rgba(16,185,129,0.4);'
-                      : (isNA
-                          ? 'background:rgba(245,158,11,0.18); color:#fbbf24; border:1px solid rgba(245,158,11,0.45);'
-                          : 'background:rgba(239,68,68,0.12); color:#f87171; border:1px solid rgba(239,68,68,0.3);')
-                  }" onclick="TeacherApp.cycleStudentStatus('${ugKey}')" title="Click to cycle status: Present / Absent / N/A">
+                  <span id="quick-badge-${ugKey}" class="quick-badge-pill ${isPresent ? 'badge-present' : (isNA ? 'badge-na' : 'badge-absent')}" onclick="TeacherApp.cycleStudentStatus('${ugKey}')" title="Click to cycle status: Present / Absent / N/A">
                     ${isPresent ? 'PRESENT ✅' : (isNA ? 'N/A ➖' : 'ABSENT ❌')}
                   </span>
                 </td>
                 <td style="text-align:center;">
-                  <div style="display:inline-flex; gap:2px; background:rgba(255,255,255,0.06); padding:2px; border-radius:6px; border:1px solid var(--border-color);">
-                    <button type="button" onclick="TeacherApp.setStudentStatus('${ugKey}', 'PRESENT')" title="Mark Present" style="padding:2px 7px; font-size:11px; font-weight:800; border-radius:4px; border:none; cursor:pointer; ${isPresent ? 'background:#10b981; color:#fff;' : 'background:transparent; color:var(--text-muted);'}">P</button>
-                    <button type="button" onclick="TeacherApp.setStudentStatus('${ugKey}', 'ABSENT')" title="Mark Absent" style="padding:2px 7px; font-size:11px; font-weight:800; border-radius:4px; border:none; cursor:pointer; ${status === 'ABSENT' ? 'background:#ef4444; color:#fff;' : 'background:transparent; color:var(--text-muted);'}">A</button>
-                    <button type="button" onclick="TeacherApp.setStudentStatus('${ugKey}', 'N/A')" title="Mark N/A" style="padding:2px 7px; font-size:11px; font-weight:800; border-radius:4px; border:none; cursor:pointer; ${isNA ? 'background:#f59e0b; color:#fff;' : 'background:transparent; color:var(--text-muted);'}">N/A</button>
+                  <div class="quick-action-group">
+                    <button type="button" class="quick-action-btn btn-action-p ${isPresent ? 'active-p' : ''}" onclick="TeacherApp.setStudentStatus('${ugKey}', 'PRESENT')" title="Mark Present">P</button>
+                    <button type="button" class="quick-action-btn btn-action-a ${isAbsent ? 'active-a' : ''}" onclick="TeacherApp.setStudentStatus('${ugKey}', 'ABSENT')" title="Mark Absent">A</button>
+                    <button type="button" class="quick-action-btn btn-action-na ${isNA ? 'active-na' : ''}" onclick="TeacherApp.setStudentStatus('${ugKey}', 'N/A')" title="Mark N/A">N/A</button>
                   </div>
                 </td>
               </tr>
@@ -1210,102 +1206,164 @@ const TeacherApp = {
     }
   },
 
-  submitQuickRollInput() {
-    const input = document.getElementById('teacher-quick-roll-input');
+  updateStudentRowDOM(ugKey, status, isHighlight = false) {
+    if (!this.quickAttState) return;
+    const ugClean = (ugKey || '').toUpperCase();
+    const isPresent = status === 'PRESENT';
+    const isNA = status === 'N/A';
+    const isAbsent = status === 'ABSENT';
+
+    const row = document.getElementById(`quick-row-${ugClean}`);
+    if (!row) return;
+
+    // 1. Update row classes
+    row.className = `quick-table-row ${isPresent ? 'row-present' : (isNA ? 'row-na' : 'row-absent')} ${isHighlight ? 'row-highlight' : ''}`;
+
+    // 2. Update Checkbox
+    const cb = row.querySelector('.teacher-quick-student-cb');
+    if (cb) {
+      cb.checked = isPresent;
+    }
+
+    // 3. Update Roll Number Color
+    const rollCell = row.querySelector('.quick-roll-cell');
+    if (rollCell) {
+      rollCell.style.color = isPresent ? '#10b981' : (isNA ? '#fbbf24' : 'var(--text-primary)');
+    }
+
+    // 4. Update Status Badge
+    const badge = document.getElementById(`quick-badge-${ugClean}`);
+    if (badge) {
+      badge.className = `quick-badge-pill ${isPresent ? 'badge-present' : (isNA ? 'badge-na' : 'badge-absent')}`;
+      badge.innerHTML = isPresent ? 'PRESENT ✅' : (isNA ? 'N/A ➖' : 'ABSENT ❌');
+    }
+
+    // 5. Update Action Group Buttons (P, A, N/A)
+    const btnP = row.querySelector('.btn-action-p');
+    const btnA = row.querySelector('.btn-action-a');
+    const btnNA = row.querySelector('.btn-action-na');
+    if (btnP) btnP.className = `quick-action-btn btn-action-p ${isPresent ? 'active-p' : ''}`;
+    if (btnA) btnA.className = `quick-action-btn btn-action-a ${isAbsent ? 'active-a' : ''}`;
+    if (btnNA) btnNA.className = `quick-action-btn btn-action-na ${isNA ? 'active-na' : ''}`;
+  },
+
+  updateMasterCheckboxState() {
+    const masterEl = document.getElementById('teacher-quick-master-cb');
+    if (!masterEl || !this.quickAttState) return;
+    const { students, statusMap } = this.quickAttState;
+    const total = students.length;
+    const presentCount = students.filter(s => (statusMap[s.ug_id.toUpperCase()] || 'ABSENT') === 'PRESENT').length;
+    masterEl.checked = total > 0 && presentCount === total;
+    masterEl.indeterminate = presentCount > 0 && presentCount < total;
+  },
+
+  processQuickRollText(raw, isTyping = false) {
+    if (!raw || !this.quickAttState) return;
     const msgBox = document.getElementById('teacher-quick-roll-msg');
-    if (!input || !this.quickAttState) return;
 
-    const raw = input.value.trim();
-    if (!raw) {
-      if (msgBox) {
-        msgBox.innerHTML = `<span style="color:#f59e0b;">⚠️ Please enter a roll number (e.g. 17) or multiple rolls separated by spaces or commas.</span>`;
-      }
-      input.focus();
-      return;
-    }
+    // Parse roll numbers and ranges (e.g. 1-10, 15, 18 22, 20 to 25)
+    const normalized = raw.replace(/\bto\b/gi, '-').replace(/\s*-\s*/g, '-');
+    const tokens = normalized.split(/[,;\s\n\t]+/);
+    const candidateRolls = [];
 
-    // Parse all numbers from the input string (supports comma, space, newline, or mixed delimiters)
-    const matches = raw.match(/\d+/g);
-    if (!matches || matches.length === 0) {
-      if (msgBox) {
-        msgBox.innerHTML = `<span style="color:#ef4444;">❌ Invalid input. Please enter valid numeric roll numbers.</span>`;
+    tokens.forEach(tok => {
+      tok = tok.trim();
+      if (!tok) return;
+
+      // Range check: e.g. 1-5 or 1..5
+      const rangeMatch = tok.match(/^(\d+)[-\.]{1,2}(\d+)$/);
+      if (rangeMatch) {
+        const start = parseInt(rangeMatch[1], 10);
+        const end = parseInt(rangeMatch[2], 10);
+        if (start <= end && (end - start) <= 70) {
+          for (let r = start; r <= end; r++) {
+            candidateRolls.push(r);
+          }
+          return;
+        }
       }
-      input.value = '';
-      input.focus();
-      return;
-    }
+
+      // Single integer
+      const n = parseInt(tok, 10);
+      if (!isNaN(n) && n > 0) {
+        candidateRolls.push(n);
+      }
+    });
+
+    if (candidateRolls.length === 0) return;
 
     const { students, statusMap, history, batch } = this.quickAttState;
-    const addedPresent = [];
-    const alreadyPresent = [];
-    const invalidRolls = [];
-
-    // Map roll number to student object for O(1) lookup
     const rollToStudent = new Map();
     students.forEach(s => {
       rollToStudent.set(parseInt(s.roll_number, 10), s);
     });
 
-    matches.forEach(m => {
-      const rollNum = parseInt(m, 10);
-      const student = rollToStudent.get(rollNum);
+    const newlyMarked = [];
+    const alreadyMarked = [];
+    const invalidRolls = [];
 
+    candidateRolls.forEach(rollNum => {
+      const student = rollToStudent.get(rollNum);
       if (!student) {
         invalidRolls.push(rollNum);
       } else {
         const ugKey = student.ug_id.toUpperCase();
         if (statusMap[ugKey] === 'PRESENT') {
-          alreadyPresent.push({ roll: rollNum, name: student.name });
+          alreadyMarked.push({ roll: rollNum, name: student.name });
         } else {
-          // Mark as PRESENT
           const prev = statusMap[ugKey] || 'ABSENT';
           statusMap[ugKey] = 'PRESENT';
-          addedPresent.push({ roll: rollNum, name: student.name, ug_id: ugKey });
-          history.push({ action: 'SET_STATUS', roll: rollNum, name: student.name, ug_id: ugKey, prevStatus: prev, newStatus: 'PRESENT' });
+          newlyMarked.push({ roll: rollNum, name: student.name, ug_id: ugKey });
+          history.push({
+            action: 'SET_STATUS',
+            roll: rollNum,
+            name: student.name,
+            ug_id: ugKey,
+            prevStatus: prev,
+            newStatus: 'PRESENT'
+          });
           this.quickAttState.lastEnteredRoll = rollNum;
+          // In-place DOM update!
+          this.updateStudentRowDOM(ugKey, 'PRESENT', true);
         }
       }
     });
 
-    // Clear input and maintain focus immediately
-    input.value = '';
-    input.focus();
+    if (newlyMarked.length > 0) {
+      this.updateQuickMetrics();
+      this.persistQuickDraft();
+      this.updateMasterCheckboxState();
 
-    // Render updated table and metrics
-    this.renderQuickRosterTable();
-    this.updateQuickMetrics();
-    this.persistQuickDraft();
-
-    // Scroll to the last marked student row smoothly
-    if (addedPresent.length > 0) {
-      const lastUg = addedPresent[addedPresent.length - 1].ug_id;
+      // Scroll smoothly to last marked student
+      const lastUg = newlyMarked[newlyMarked.length - 1].ug_id;
       const row = document.getElementById(`quick-row-${lastUg}`);
       if (row) {
         row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }
     }
 
-    // Compose clean feedback message (without # prefix)
     if (msgBox) {
-      if (addedPresent.length > 0 && invalidRolls.length === 0 && alreadyPresent.length === 0) {
-        if (addedPresent.length === 1) {
-          msgBox.innerHTML = `<span style="color:#10b981;">✓ Roll <strong>${addedPresent[0].roll}</strong> (${addedPresent[0].name}) marked <strong>PRESENT ✅</strong></span>`;
-        } else {
-          const rollsStr = addedPresent.map(p => p.roll).join(', ');
-          msgBox.innerHTML = `<span style="color:#10b981;">✓ Marked <strong>${addedPresent.length} students PRESENT:</strong> Roll ${rollsStr}</span>`;
-        }
-      } else if (invalidRolls.length > 0 && addedPresent.length === 0) {
-        msgBox.innerHTML = `<span style="color:#ef4444;">❌ Invalid Roll Number: Roll ${invalidRolls.join(', ')} does not exist in <strong>${batch}</strong>.</span>`;
-      } else if (alreadyPresent.length > 0 && addedPresent.length === 0) {
-        msgBox.innerHTML = `<span style="color:#f59e0b;">⚠️ Roll ${alreadyPresent[0].roll} (${alreadyPresent[0].name}) is already marked Present.</span>`;
-      } else {
-        const parts = [];
-        if (addedPresent.length > 0) parts.push(`<span style="color:#10b981;">✓ Marked ${addedPresent.length} Present</span>`);
-        if (alreadyPresent.length > 0) parts.push(`<span style="color:#f59e0b;">⚠️ ${alreadyPresent.length} Already Present</span>`);
-        if (invalidRolls.length > 0) parts.push(`<span style="color:#ef4444;">❌ Invalid: Roll ${invalidRolls.join(', ')}</span>`);
-        msgBox.innerHTML = parts.join(' &bull; ');
+      if (newlyMarked.length > 0) {
+        const rollsList = newlyMarked.map(m => m.roll).join(', ');
+        msgBox.innerHTML = `<span style="color:#10b981; font-weight:800;">⚡ Auto-Ticked PRESENT (${newlyMarked.length}): Roll ${rollsList}</span>`;
+      } else if (invalidRolls.length > 0 && !isTyping) {
+        msgBox.innerHTML = `<span style="color:#ef4444;">❌ Invalid Roll: Roll ${invalidRolls.join(', ')} not in <strong>${batch}</strong>.</span>`;
+      } else if (alreadyMarked.length > 0 && !isTyping) {
+        msgBox.innerHTML = `<span style="color:#f59e0b;">ℹ️ Roll ${alreadyMarked.map(a => a.roll).join(', ')} is already Present.</span>`;
       }
     }
+  },
+
+  submitQuickRollInput() {
+    const input = document.getElementById('teacher-quick-roll-input');
+    if (!input || !this.quickAttState) return;
+
+    const raw = input.value.trim();
+    if (raw) {
+      this.processQuickRollText(raw, false);
+    }
+    input.value = '';
+    input.focus();
   },
 
   onStudentCheckboxToggle(ugKey, isChecked) {
@@ -1322,7 +1380,9 @@ const TeacherApp = {
     if (!students || students.length === 0) return;
 
     students.forEach(s => {
-      statusMap[s.ug_id.toUpperCase()] = targetStatus;
+      const ugKey = s.ug_id.toUpperCase();
+      statusMap[ugKey] = targetStatus;
+      this.updateStudentRowDOM(ugKey, targetStatus, false);
     });
 
     history.push({
@@ -1343,9 +1403,9 @@ const TeacherApp = {
       }
     }
 
-    this.renderQuickRosterTable();
     this.updateQuickMetrics();
     this.persistQuickDraft();
+    this.updateMasterCheckboxState();
 
     const input = document.getElementById('teacher-quick-roll-input');
     if (input) input.focus();
@@ -1376,17 +1436,19 @@ const TeacherApp = {
     const msgBox = document.getElementById('teacher-quick-roll-msg');
     if (msgBox && student) {
       if (targetStatus === 'PRESENT') {
-        msgBox.innerHTML = `<span style="color:#10b981;">✓ Roll <strong>${student.roll_number}</strong> (${student.name}) switched to <strong>PRESENT ✅</strong></span>`;
+        msgBox.innerHTML = `<span style="color:#10b981;">✓ Roll <strong>${student.roll_number}</strong> (${student.name}) marked <strong>PRESENT ✅</strong></span>`;
       } else if (targetStatus === 'N/A') {
-        msgBox.innerHTML = `<span style="color:#fbbf24;">➖ Roll <strong>${student.roll_number}</strong> (${student.name}) switched to <strong>N/A ➖</strong></span>`;
+        msgBox.innerHTML = `<span style="color:#fbbf24;">➖ Roll <strong>${student.roll_number}</strong> (${student.name}) marked <strong>N/A ➖</strong></span>`;
       } else {
-        msgBox.innerHTML = `<span style="color:#f87171;">✕ Roll <strong>${student.roll_number}</strong> (${student.name}) switched to <strong>ABSENT ❌</strong></span>`;
+        msgBox.innerHTML = `<span style="color:#f87171;">✕ Roll <strong>${student.roll_number}</strong> (${student.name}) marked <strong>ABSENT ❌</strong></span>`;
       }
     }
 
-    this.renderQuickRosterTable();
+    // IN-PLACE DOM UPDATE (No tableBox.innerHTML recreation!)
+    this.updateStudentRowDOM(ugKey, targetStatus, true);
     this.updateQuickMetrics();
     this.persistQuickDraft();
+    this.updateMasterCheckboxState();
 
     const input = document.getElementById('teacher-quick-roll-input');
     if (input) input.focus();
@@ -1419,23 +1481,25 @@ const TeacherApp = {
     const last = history.pop();
     if (last.action === 'SET_STATUS' || last.action === 'TOGGLE') {
       statusMap[last.ug_id] = last.prevStatus;
+      this.updateStudentRowDOM(last.ug_id, last.prevStatus, true);
       this.quickAttState.lastEnteredRoll = null;
       if (msgBox) {
-        msgBox.innerHTML = `<span style="color:#38bdf8;">↩ Reverted Roll <strong>${last.roll}</strong> (${last.name}) back to <strong>${last.prevStatus}</strong>.</span>`;
+        msgBox.innerHTML = `<span style="color:#38bdf8;">↩ Reverted Roll <strong>${last.roll}</strong> (${last.name}) to <strong>${last.prevStatus}</strong>.</span>`;
       }
     } else if (last.action === 'BULK_SET') {
-      // If bulk set was undone, reset all to ABSENT
       this.quickAttState.students.forEach(s => {
-        statusMap[s.ug_id.toUpperCase()] = 'ABSENT';
+        const ug = s.ug_id.toUpperCase();
+        statusMap[ug] = 'ABSENT';
+        this.updateStudentRowDOM(ug, 'ABSENT', false);
       });
       if (msgBox) {
         msgBox.innerHTML = `<span style="color:#38bdf8;">↩ Undid bulk action. Reset all to <strong>ABSENT</strong>.</span>`;
       }
     }
 
-    this.renderQuickRosterTable();
     this.updateQuickMetrics();
     this.persistQuickDraft();
+    this.updateMasterCheckboxState();
 
     if (input) input.focus();
   },
@@ -1486,15 +1550,48 @@ const TeacherApp = {
     const newInput = input.cloneNode(true);
     input.parentNode.replaceChild(newInput, input);
 
+    let typingTimer = null;
+
+    // 1. REAL-TIME INPUT EVENT: auto-ticks as user enters or pastes
+    newInput.addEventListener('input', () => {
+      const val = newInput.value;
+      if (!val || !val.trim()) return;
+
+      // If text has delimiter (comma, space, semicolon, newline) or range (1-10)
+      if (/[,;\s\n\t]/.test(val) || val.includes('-') || val.toLowerCase().includes('to')) {
+        TeacherApp.processQuickRollText(val, true);
+      } else {
+        // Single digit in progress -> debounce 350ms so typing "12" doesn't mark 1
+        clearTimeout(typingTimer);
+        typingTimer = setTimeout(() => {
+          TeacherApp.processQuickRollText(newInput.value, true);
+        }, 350);
+      }
+    });
+
+    // 2. PASTE EVENT: instant bulk parsing on paste (0ms delay)
+    newInput.addEventListener('paste', () => {
+      setTimeout(() => {
+        const val = newInput.value;
+        if (val && val.trim()) {
+          TeacherApp.processQuickRollText(val, false);
+        }
+      }, 10);
+    });
+
+    // 3. KEYDOWN EVENT: Enter confirms, clears input, prevents page refresh/form submit
     newInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
+        e.stopPropagation();
+        clearTimeout(typingTimer);
         TeacherApp.submitQuickRollInput();
+        return false;
       } else if (e.key === 'Escape') {
         e.preventDefault();
         newInput.value = '';
         const msgBox = document.getElementById('teacher-quick-roll-msg');
-        if (msgBox) msgBox.innerHTML = '';
+        if (msgBox) msgBox.innerHTML = '<span style="color:var(--text-muted);">Cleared. Enter roll numbers to mark Present.</span>';
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
         e.preventDefault();
         TeacherApp.undoQuickEntry();
@@ -1818,7 +1915,7 @@ const TeacherApp = {
         </thead>
         <tbody>
           ${students.map(s => {
-            const currentStatus = statusMap[s.ug_id.toUpperCase()] || 'PRESENT';
+            const currentStatus = statusMap[s.ug_id.toUpperCase()] || 'ABSENT';
             return `
               <tr data-ug="${s.ug_id}" data-name="${s.name}" data-roll="${s.roll_number}" data-batch="${s.batch}">
                 <td><strong>#${s.roll_number}</strong></td>
@@ -1952,9 +2049,14 @@ const TeacherApp = {
             <h3 style="font-size:16px; font-weight:800; margin:0;">📊 Attendance Reports & Export</h3>
             <p style="font-size:12px; color:var(--text-secondary); margin:2px 0 0 0;">View verified attendance records for your assigned subjects.</p>
           </div>
-          <button class="btn-sec" onclick="TeacherApp.exportAttendanceCSV()" style="padding:6px 14px; font-size:12px; margin:0; display:inline-flex; align-items:center; gap:6px;">
-            <span>📥</span> <span>Export CSV</span>
-          </button>
+          <div style="display:flex; gap:8px;">
+            <button class="btn-primary" onclick="TeacherApp.generateAttendancePDF()" style="width:auto; padding:8px 18px; font-size:12.5px; font-weight:800; background:linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color:#ffffff; box-shadow:0 4px 14px rgba(37,99,235,0.35); margin:0; display:inline-flex; align-items:center; gap:8px; border-radius:8px;">
+              <span>📄</span> <span>Download Official PDF</span>
+            </button>
+            <button class="btn-sec" onclick="TeacherApp.exportAttendanceCSV()" style="padding:6px 12px; font-size:12px; margin:0; display:inline-flex; align-items:center; gap:6px;">
+              <span>📊</span> <span>CSV</span>
+            </button>
+          </div>
         </div>
 
         <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-bottom:16px;">
@@ -2003,6 +2105,8 @@ const TeacherApp = {
     }
 
     const { stats, data } = res;
+    this.lastReportData = data || [];
+    this.lastReportStats = stats || {};
 
     box.innerHTML = `
       <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:12px; margin-bottom:16px;">
@@ -2082,6 +2186,29 @@ const TeacherApp = {
     document.body.appendChild(link);
     link.click();
     link.remove();
+  },
+
+  generateAttendancePDF() {
+    const subject = document.getElementById('report-subject-select')?.value || 'ALL';
+    const date = document.getElementById('report-date-select')?.value || getIndianDateString();
+    const batch = document.getElementById('report-batch-select')?.value || 'ALL';
+    const teacher = this.currentUser || {};
+
+    const records = this.lastReportData || [];
+    if (!records || records.length === 0) {
+      window.App.showToast('No attendance records available for the selected criteria.', 'warning');
+      return;
+    }
+
+    window.App.showToast('Generating official PDF attendance register...', 'info');
+
+    window.App.generateAttendancePDFDocument({
+      subject: subject !== 'ALL' ? subject : 'Assigned Subjects',
+      date: date,
+      batch: batch !== 'ALL' ? batch : 'All Batches',
+      facultyName: teacher.name ? `Prof. ${teacher.name}` : 'Subject Faculty',
+      records: records
+    });
   },
 
   // ==========================================================================

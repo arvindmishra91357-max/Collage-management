@@ -5,6 +5,7 @@ const bcrypt = require('bcryptjs');
 const db = require('../db');
 const realtime = require('../realtime');
 const { formatBytes, persistUploadedFile } = require('../services/storageService');
+const { finalizeSessionAbsentees } = require('./attendanceController');
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -545,11 +546,15 @@ async function startQRSession(req, res) {
     const expiryTime = new Date(startTime.getTime() + (duration_minutes * 60 * 1000));
     const sessionSecret = crypto.randomBytes(16).toString('hex');
 
-    // Retire any previously active session for this teacher and subject to prevent stale collisions
-    await db.run(
-      "UPDATE attendance_sessions SET status = 'EXPIRED' WHERE status = 'ACTIVE' AND teacher_id = ? AND subject = ?",
+    // Retire any previously active session for this teacher and subject and finalize absentees
+    const activeOld = await db.query(
+      "SELECT id FROM attendance_sessions WHERE status = 'ACTIVE' AND teacher_id = ? AND subject = ?",
       [teacher.teacher_id, subject]
     );
+    for (const old of activeOld) {
+      await db.run("UPDATE attendance_sessions SET status = 'EXPIRED' WHERE id = ?", [old.id]);
+      await finalizeSessionAbsentees(old.id, teacher.name);
+    }
 
     const result = await db.run(`
       INSERT INTO attendance_sessions (
@@ -620,6 +625,7 @@ async function stopQRSession(req, res) {
     }
 
     await db.run("UPDATE attendance_sessions SET status = 'STOPPED' WHERE id = ?", [id]);
+    await finalizeSessionAbsentees(id, teacher.name);
 
     realtime.broadcastEvent({
       type: 'ATTENDANCE_SESSION_STOPPED',
@@ -789,7 +795,23 @@ async function getAttendanceReports(req, res) {
 
     const { subject, date, batch } = req.query;
 
-    let sql = "SELECT * FROM attendance_manual WHERE 1=1";
+    let sql = `
+      SELECT 
+        am.id,
+        am.ug_id,
+        COALESCE(NULLIF(s.name, 'UNRECORDED'), NULLIF(am.student_name, 'UNRECORDED'), 'Student') as student_name,
+        COALESCE(s.roll_number, 0) as roll_number,
+        COALESCE(s.batch, NULLIF(am.batch, 'Both'), CASE WHEN s.roll_number <= 30 THEN 'Batch 1' ELSE 'Batch 2' END) as batch,
+        am.date,
+        am.subject,
+        am.status,
+        am.remarks,
+        am.marked_by,
+        am.created_at
+      FROM attendance_manual am
+      LEFT JOIN students s ON TRIM(UPPER(am.ug_id)) = TRIM(UPPER(s.ug_id))
+      WHERE 1=1
+    `;
     const params = [];
 
     // Filter by teacher's assigned subjects
@@ -798,27 +820,27 @@ async function getAttendanceReports(req, res) {
       if (!isSubjectAssigned(teacher, subject)) {
         return res.status(403).json({ success: false, message: `Access denied to subject "${subject}".` });
       }
-      sql += " AND subject = ?";
+      sql += " AND am.subject = ?";
       params.push(subject);
     } else if (assignedSubjects.length > 0) {
-      sql += ` AND (${assignedSubjects.map(() => "UPPER(subject) LIKE ?").join(" OR ")})`;
+      sql += ` AND (${assignedSubjects.map(() => "UPPER(am.subject) LIKE ?").join(" OR ")})`;
       assignedSubjects.forEach(s => params.push(`%${s}%`));
     }
 
     if (date) {
-      sql += " AND date = ?";
+      sql += " AND am.date = ?";
       params.push(date);
     }
 
     if (batch && batch !== 'ALL' && batch !== 'Both') {
-      sql += " AND batch = ?";
-      params.push(batch);
+      sql += " AND (s.batch = ? OR am.batch = ?)";
+      params.push(batch, batch);
     } else if (teacher.batch && teacher.batch !== 'Both') {
-      sql += " AND batch = ?";
-      params.push(teacher.batch);
+      sql += " AND (s.batch = ? OR am.batch = ?)";
+      params.push(teacher.batch, teacher.batch);
     }
 
-    sql += " ORDER BY date DESC, student_name ASC";
+    sql += " ORDER BY am.date DESC, roll_number ASC, student_name ASC";
     const records = await db.query(sql, params);
 
     const total = records.length;

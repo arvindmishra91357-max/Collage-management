@@ -58,6 +58,103 @@ function verifyDynamicToken(tokenString, secret, intervalSeconds = 15) {
   return { valid: true, sessionId: parseInt(sessionId, 10) };
 }
 
+// Finalize absentees for a stopped or expired QR attendance session
+// Only students who scanned are PRESENT; all unscanned students in that batch are marked ABSENT
+async function finalizeSessionAbsentees(sessionId, stoppedBy = 'System') {
+  try {
+    const session = await db.get("SELECT * FROM attendance_sessions WHERE id = ?", [sessionId]);
+    if (!session) return { count: 0 };
+
+    let studentSql = "SELECT ug_id, name, roll_number, batch FROM students WHERE status = 'ACTIVE'";
+    const sParams = [];
+    const sessBatch = (session.batch || 'Both').trim();
+    if (sessBatch === 'Batch 1' || sessBatch === 'Batch 2') {
+      studentSql += " AND batch = ?";
+      sParams.push(sessBatch);
+    }
+    studentSql += " ORDER BY roll_number ASC";
+    const roster = await db.query(studentSql, sParams);
+
+    const existingScans = await db.query(
+      "SELECT ug_id, status FROM attendance_records WHERE session_id = ?",
+      [sessionId]
+    );
+    const existingUgIds = new Set(existingScans.map(s => (s.ug_id || '').trim().toUpperCase()));
+
+    let absentCount = 0;
+    for (const st of roster) {
+      const cleanUgId = (st.ug_id || '').trim().toUpperCase();
+      if (!existingUgIds.has(cleanUgId)) {
+        // 1. Record ABSENT in attendance_records
+        try {
+          await db.run(`
+            INSERT INTO attendance_records (
+              session_id, ug_id, student_name, roll_number, batch, subject, date, status, method, verified_distance_meters, student_lat, student_lng
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 'ABSENT', 'UNSCANNED', 0, 0, 0)
+          `, [
+            session.id, st.ug_id, st.name, st.roll_number, st.batch,
+            session.subject, session.date
+          ]);
+        } catch (e) {}
+
+        // 2. Record ABSENT in attendance_manual
+        const existingManual = await db.get(
+          "SELECT id, status FROM attendance_manual WHERE TRIM(UPPER(ug_id)) = ? AND date = ? AND subject = ?",
+          [cleanUgId, session.date, session.subject]
+        );
+        if (!existingManual) {
+          await db.run(`
+            INSERT INTO attendance_manual (ug_id, student_name, date, subject, batch, status, remarks, marked_by)
+            VALUES (?, ?, ?, ?, ?, 'ABSENT', 'Did not scan QR (Absent)', 'QR_SYSTEM')
+          `, [st.ug_id, st.name, session.date, session.subject, st.batch]);
+        } else if (existingManual.status !== 'PRESENT') {
+          await db.run(
+            "UPDATE attendance_manual SET status = 'ABSENT', remarks = 'Did not scan QR (Absent)', marked_by = 'QR_SYSTEM' WHERE id = ?",
+            [existingManual.id]
+          );
+        }
+
+        // 3. Audit log
+        try {
+          await db.run(`
+            INSERT INTO attendance_audit_logs (action, ug_id, session_id, old_status, new_status, changed_by, teacher_id, reason)
+            VALUES ('QR_AUTO_ABSENT', ?, ?, 'UNRECORDED', 'ABSENT', ?, ?, 'Did not scan QR before session close')
+          `, [st.ug_id, session.id, stoppedBy, session.teacher_id || 'System']);
+        } catch (auditErr) {}
+
+        absentCount++;
+      }
+    }
+
+    realtime.broadcastEvent({
+      type: 'ATTENDANCE_UPDATED',
+      sessionId: session.id,
+      subject: session.subject,
+      batch: session.batch,
+      date: session.date,
+      message: `⏹️ Attendance Session Finalized: Present = ${existingScans.length}, Absent = ${absentCount}`
+    });
+
+    return { success: true, absentCount, presentCount: existingScans.length };
+  } catch (err) {
+    console.error('[AttendanceController] finalizeSessionAbsentees error:', err);
+    return { success: false, error: err.message };
+  }
+}
+
+async function syncHistoricalSessionAbsentees() {
+  try {
+    const closedSessions = await db.query(
+      "SELECT id FROM attendance_sessions WHERE status IN ('STOPPED', 'EXPIRED')"
+    );
+    for (const s of closedSessions) {
+      await finalizeSessionAbsentees(s.id, 'System (Historical Sync)');
+    }
+  } catch (e) {
+    console.error('[AttendanceController] syncHistoricalSessionAbsentees error:', e);
+  }
+}
+
 // 1. Admin: Start Dynamic QR Attendance Session
 async function startQRSession(req, res) {
   try {
@@ -81,11 +178,15 @@ async function startQRSession(req, res) {
     const expiryTime = new Date(startTime.getTime() + (duration_minutes * 60 * 1000));
     const sessionSecret = crypto.randomBytes(16).toString('hex');
 
-    // Retire any previously active admin sessions for this subject to prevent stale collisions
-    await db.run(
-      "UPDATE attendance_sessions SET status = 'EXPIRED' WHERE status = 'ACTIVE' AND subject = ? AND created_by = 'Admin'",
+    // Retire any previously active admin sessions for this subject and mark unscanned as absent
+    const prevActive = await db.query(
+      "SELECT id FROM attendance_sessions WHERE status = 'ACTIVE' AND subject = ? AND created_by = 'Admin'",
       [subject]
     );
+    for (const p of prevActive) {
+      await db.run("UPDATE attendance_sessions SET status = 'EXPIRED' WHERE id = ?", [p.id]);
+      await finalizeSessionAbsentees(p.id, 'Admin (New Session Launched)');
+    }
 
     const result = await db.run(`
       INSERT INTO attendance_sessions (
@@ -149,6 +250,10 @@ async function getLiveQRToken(req, res) {
     }
 
     if (session.status !== 'ACTIVE' || new Date(session.expiry_time) < new Date()) {
+      if (session.status === 'ACTIVE') {
+        await db.run("UPDATE attendance_sessions SET status = 'EXPIRED' WHERE id = ?", [session.id]);
+        await finalizeSessionAbsentees(session.id, 'System (Session Expired)');
+      }
       return res.json({
         success: false,
         status: 'EXPIRED',
@@ -323,11 +428,12 @@ async function stopQRSession(req, res) {
   try {
     const { id } = req.params;
     await db.run("UPDATE attendance_sessions SET status = 'STOPPED' WHERE id = ?", [id]);
+    await finalizeSessionAbsentees(id, req.user ? (req.user.name || req.user.role) : 'Admin');
     realtime.broadcastEvent({
       type: 'ATTENDANCE_SESSION_STOPPED',
       sessionId: id
     });
-    return res.json({ success: true, message: 'Attendance session stopped.' });
+    return res.json({ success: true, message: 'Attendance session stopped and all unscanned students recorded as ABSENT.' });
   } catch (err) {
     console.error('[AttendanceController] stopQRSession error:', err);
     return res.status(500).json({ success: false, message: 'Failed to stop session.' });
@@ -502,6 +608,7 @@ async function getAdminAttendanceReport(req, res) {
 
     // Self-healing migration: fix any legacy rows where student_name or batch is unrecorded/missing
     try {
+      await syncHistoricalSessionAbsentees();
       await db.run(`
         UPDATE attendance_manual
         SET student_name = (SELECT name FROM students WHERE TRIM(UPPER(students.ug_id)) = TRIM(UPPER(attendance_manual.ug_id))),
@@ -732,5 +839,7 @@ module.exports = {
   getSessionScans,
   saveManualAttendance,
   getStudentAttendance,
-  getAdminAttendanceReport
+  getAdminAttendanceReport,
+  finalizeSessionAbsentees,
+  syncHistoricalSessionAbsentees
 };
