@@ -273,6 +273,22 @@ async function getProfile(req, res) {
           status: teacher.status
         }
       });
+    } else if (req.user.role === 'HOD') {
+      const dept = await db.get("SELECT * FROM departments WHERE code = 'CSE' OR name = 'Computer Science & Engineering' LIMIT 1");
+      return res.json({
+        success: true,
+        user: {
+          id: req.user.id || 1,
+          role: 'HOD',
+          username: req.user.username || 'HOD_CSE',
+          name: req.user.name || (dept ? dept.head_name : 'Dr. A. K. Sharma'),
+          department: req.user.department || (dept ? dept.name : 'Computer Science & Engineering'),
+          department_code: dept ? dept.code : 'CSE',
+          email: dept ? dept.head_email : 'hod.cse@mishragroup.ac.in',
+          phone: dept ? dept.head_phone : '+91 98765 43210',
+          designation: 'Head of Department (HOD) & Professor'
+        }
+      });
     } else if (req.user.role === 'ADMIN') {
       return res.json({
         success: true,

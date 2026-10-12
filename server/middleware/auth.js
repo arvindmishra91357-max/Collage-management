@@ -56,10 +56,30 @@ function requireTeacher(req, res, next) {
 }
 
 function requireTeacherOrAdmin(req, res, next) {
-  if (!req.user || (req.user.role !== 'TEACHER' && req.user.role !== 'ADMIN')) {
+  if (!req.user || (req.user.role !== 'TEACHER' && req.user.role !== 'ADMIN' && req.user.role !== 'HOD')) {
     return res.status(403).json({
       success: false,
-      message: 'Forbidden: Faculty or Admin access privileges required.'
+      message: 'Forbidden: Faculty, HOD, or Admin access privileges required.'
+    });
+  }
+  next();
+}
+
+function requireHOD(req, res, next) {
+  if (!req.user || (req.user.role !== 'HOD' && req.user.role !== 'ADMIN')) {
+    return res.status(403).json({
+      success: false,
+      message: 'Forbidden: Head of Department (HOD) access privileges required.'
+    });
+  }
+  next();
+}
+
+function requireHODStrict(req, res, next) {
+  if (!req.user || req.user.role !== 'HOD') {
+    return res.status(403).json({
+      success: false,
+      message: 'Forbidden: Head of Department (HOD) access privileges required.'
     });
   }
   next();
@@ -89,3 +109,4 @@ module.exports = {
   generateToken,
   JWT_SECRET
 };
+

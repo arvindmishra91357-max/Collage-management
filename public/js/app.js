@@ -57,6 +57,9 @@ const App = {
         HodApp.init(user);
       } else if (user.role === 'TEACHER') {
         TeacherApp.init(user);
+      } else if (user.role === 'HOD') {
+        if (window.HodApp) HodApp.init(user);
+        else AdminApp.init(user);
       } else {
         StudentApp.init(user);
       }
@@ -660,6 +663,13 @@ const App = {
         } catch (e) {}
         this.showToast(`Welcome back, Prof. ${res.user.name}!${res.isOffline ? ' (Failsafe Active)' : ''}`, 'success');
         TeacherApp.init(res.user, 'dashboard');
+      } else if (res.user.role === 'HOD') {
+        try {
+          history.replaceState({ role: 'HOD', section: 'dashboard' }, '', '#hod-dashboard');
+        } catch (e) {}
+        this.showToast(`Welcome, Dr. ${res.user.name || 'HOD'}! Opening HOD Department Portal...`, 'success');
+        if (window.HodApp) HodApp.init(res.user, 'dashboard');
+        else AdminApp.init(res.user, 'dashboard');
       } else {
         try {
           history.replaceState({ role: 'STUDENT', tab: 'home' }, '', '#home');

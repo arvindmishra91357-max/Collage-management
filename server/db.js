@@ -774,6 +774,7 @@ async function initDB() {
   const indexes = [
     "CREATE INDEX IF NOT EXISTS idx_students_ug_id ON students(ug_id)",
     "CREATE INDEX IF NOT EXISTS idx_students_batch ON students(batch)",
+    "CREATE INDEX IF NOT EXISTS idx_students_dept ON students(department)",
     "CREATE INDEX IF NOT EXISTS idx_timetable_day_batch ON timetable(day, batch)",
     "CREATE INDEX IF NOT EXISTS idx_attendance_records_session_ug ON attendance_records(session_id, ug_id)",
     "CREATE INDEX IF NOT EXISTS idx_class_notes_subject ON class_notes(subject)",
