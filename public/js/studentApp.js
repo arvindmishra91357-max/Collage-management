@@ -109,11 +109,14 @@ const StudentApp = {
       if (b) b.style.display = 'block';
     }
 
-    // 4. Resilient background interval heartbeat (every 15s)
+    // 4. Resilient background interval heartbeat (every 12s)
     if (this.backgroundSyncInterval) clearInterval(this.backgroundSyncInterval);
     this.backgroundSyncInterval = setInterval(() => {
       this.setupNotificationBadge();
-    }, 15000);
+      if (this.currentTab === 'attendance') {
+        this.refreshCurrentTabSilent();
+      }
+    }, 12000);
   },
 
   async refreshCurrentTabSilent() {
@@ -299,8 +302,13 @@ const StudentApp = {
               this.refreshCurrentTabSilent();
             }
           }
-          else if (payload.type === 'ATTENDANCE_UPDATED' || payload.type === 'ATTENDANCE_MODIFIED' || payload.type === 'ATTENDANCE_SESSION_STOPPED') {
-            if (this.currentTab === 'attendance' || this.currentTab === 'home') {
+          else if (payload.type === 'ATTENDANCE_UPDATED' || payload.type === 'ATTENDANCE_MODIFIED' || payload.type === 'ATTENDANCE_SESSION_STOPPED' || payload.type === 'ATTENDANCE_RECORDED') {
+            if (this.currentTab === 'attendance') {
+              this.refreshCurrentTabSilent();
+              if (window.App && window.App.showToast) {
+                window.App.showToast(payload.message || '📋 Attendance record updated in real-time!', 'info');
+              }
+            } else if (this.currentTab === 'home') {
               this.refreshCurrentTabSilent();
             }
           }
@@ -320,6 +328,14 @@ const StudentApp = {
         } catch (err) {
           console.warn('Realtime message parse error:', err);
         }
+      };
+      es.onerror = (err) => {
+        try { es.close(); } catch (e) {}
+        this.eventSource = null;
+        if (this._sseReconnectTimer) clearTimeout(this._sseReconnectTimer);
+        this._sseReconnectTimer = setTimeout(() => {
+          if (API.getToken()) this.initRealtimeSSE();
+        }, 5000);
       };
       this.eventSource = es;
     } catch (err) {
@@ -418,7 +434,11 @@ const StudentApp = {
     document.querySelectorAll('.bottom-nav-item').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const tab = btn.dataset.tab;
-        this.switchTab(tab);
+        if (tab === this.currentTab && tab === 'attendance') {
+          this.refreshAttendanceTabWithFeedback();
+        } else {
+          this.switchTab(tab);
+        }
       });
     });
 
@@ -1899,9 +1919,14 @@ const StudentApp = {
     const history = res.success ? res.history : [];
 
     container.innerHTML = `
-      <div style="margin-bottom:18px;">
-        <h2 style="font-size:20px; font-weight:800; margin-bottom:4px;">📊 Attendance System</h2>
-        <p style="font-size:13px; color:var(--text-secondary);">Classroom GPS Geofenced Attendance & Session History</p>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; flex-wrap:wrap; gap:10px;">
+        <div>
+          <h2 style="font-size:20px; font-weight:800; margin-bottom:4px;">📊 Attendance System</h2>
+          <p style="font-size:13px; color:var(--text-secondary); margin:0;">Classroom GPS Geofenced Attendance & Session History</p>
+        </div>
+        <button type="button" class="btn-sec" id="btn-refresh-student-attendance" onclick="StudentApp.refreshAttendanceTabWithFeedback()" style="width:auto; margin:0; padding:6px 14px; font-size:12px; font-weight:700; display:inline-flex; align-items:center; gap:6px; border-radius:var(--radius-full); background:rgba(255,255,255,0.06); border:1px solid var(--border-color); cursor:pointer;">
+          <span id="refresh-att-icon" style="display:inline-block; transition:transform 0.5s ease;">🔄</span> Refresh
+        </button>
       </div>
 
       <!-- Classroom QR Attendance Action Card -->
@@ -1976,20 +2001,67 @@ const StudentApp = {
           <h3>🕒 Recent Attendance Logs</h3>
         </div>
         <div class="glass-card" style="padding:12px;">
-          ${history.slice(0, 10).map(h => `
+          ${history.length === 0 ? `
+            <div style="text-align:center; padding:20px; color:var(--text-muted); font-size:12px;">No attendance sessions recorded yet.</div>
+          ` : history.slice(0, 15).map(h => {
+            const isManual = (h.method === 'MANUAL' || (h.remarks && (h.remarks.toLowerCase().includes('manual') || h.remarks.toLowerCase().includes('roll call') || h.remarks.toLowerCase().includes('admin') || h.remarks.toLowerCase().includes('faculty') || h.remarks.toLowerCase().includes('teacher'))));
+            const isFaceScan = (h.method === 'FACE_SCAN' || (h.remarks && h.remarks.toLowerCase().includes('face')));
+            const isLeave = (h.status === 'LEAVE' || (h.remarks && h.remarks.toLowerCase().includes('leave')));
+            let methodLabel = '📷 QR Code Scan';
+            if (isLeave) {
+              methodLabel = '➖ Leave / Excused';
+            } else if (isFaceScan) {
+              methodLabel = '👤 Biometric Face Scan';
+            } else if (isManual) {
+              methodLabel = '✍️ Faculty Manual Entry';
+            }
+            return `
             <div style="display:flex; justify-content:space-between; align-items:center; padding:10px; border-bottom:1px solid var(--border-color);">
               <div>
                 <div style="font-weight:700; font-size:13px;">${h.subject}</div>
-                <div style="font-size:11px; color:var(--text-muted);">${h.date} • 📷 QR Scan</div>
+                <div style="font-size:11px; color:var(--text-muted);">${h.date} • ${methodLabel}</div>
               </div>
-              <span style="padding:3px 8px; border-radius:var(--radius-full); font-size:11px; font-weight:700; background:${h.status === 'PRESENT' ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)'}; color:${h.status === 'PRESENT' ? '#34d399' : '#f87171'};">
+              <span style="padding:3px 8px; border-radius:var(--radius-full); font-size:11px; font-weight:700; background:${h.status === 'PRESENT' ? 'rgba(16,185,129,0.15)' : (h.status === 'LEAVE' ? 'rgba(245,158,11,0.15)' : 'rgba(239,68,68,0.15)')}; color:${h.status === 'PRESENT' ? '#34d399' : (h.status === 'LEAVE' ? '#fbbf24' : '#f87171')};">
                 ${h.status}
               </span>
             </div>
-          `).join('')}
+          `;}).join('')}
         </div>
       </section>
     `;
+  },
+
+  async refreshAttendanceTabWithFeedback() {
+    const icon = document.getElementById('refresh-att-icon');
+    const btn = document.getElementById('btn-refresh-student-attendance');
+    if (icon) {
+      icon.style.display = 'inline-block';
+      icon.style.transform = 'rotate(360deg)';
+      icon.style.transition = 'transform 0.5s ease';
+    }
+    if (btn) btn.disabled = true;
+
+    try {
+      const container = document.getElementById('student-main-content');
+      if (container && this.currentTab === 'attendance') {
+        await this.renderAttendanceTab(container);
+      }
+      if (window.App && window.App.showToast) {
+        window.App.showToast('📋 Attendance status refreshed!', 'info');
+      }
+    } catch (e) {
+      console.warn('Refresh attendance error:', e);
+    } finally {
+      setTimeout(() => {
+        const i = document.getElementById('refresh-att-icon');
+        const b = document.getElementById('btn-refresh-student-attendance');
+        if (i) {
+          i.style.transition = 'none';
+          i.style.transform = 'none';
+        }
+        if (b) b.disabled = false;
+      }, 500);
+    }
   },
 
   // 1. Dynamic QR Scanner Modal (High Performance, Multi-Device, Zero-Crash)

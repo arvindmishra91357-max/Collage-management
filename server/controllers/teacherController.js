@@ -717,6 +717,14 @@ async function saveManualAttendance(req, res) {
 
     const assignedBatch = batch || teacher.batch || 'Both';
     const dateStr = date || getIndianDateString();
+    const todayStr = getIndianDateString();
+
+    if (dateStr > todayStr) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot record attendance for a future date.'
+      });
+    }
 
     let updatedCount = 0;
 
@@ -756,6 +764,13 @@ async function saveManualAttendance(req, res) {
           VALUES ('CREATE_MANUAL', ?, ?, 'UNRECORDED', ?, ?, ?, ?)
         `, [result.id, cleanUgId, status, teacher.name, teacher.teacher_id, 'Teacher manual roll call initial']);
       }
+
+      // Sync status to attendance_records if present
+      await db.run(
+        "UPDATE attendance_records SET status = ?, method = 'MANUAL' WHERE TRIM(UPPER(ug_id)) = ? AND date = ? AND subject = ?",
+        [status, cleanUgId, dateStr, subject]
+      );
+
       updatedCount++;
     }
 

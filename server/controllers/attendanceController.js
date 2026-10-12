@@ -2,6 +2,24 @@ const crypto = require('crypto');
 const QRCode = require('qrcode');
 const db = require('../db');
 const realtime = require('../realtime');
+function getIndianDate() {
+  try {
+    const s = new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' });
+    return new Date(s);
+  } catch (e) {
+    const now = new Date();
+    const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+    return new Date(utc + (3600000 * 5.5));
+  }
+}
+
+function getIndianDateString() {
+  const d = getIndianDate();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
 
 // Server-side Haversine Distance Formula (calculates distance in meters between two GPS coordinates)
 function calculateHaversineDistance(lat1, lon1, lat2, lon2) {
@@ -476,6 +494,14 @@ async function saveManualAttendance(req, res) {
       });
     }
 
+    const todayStr = getIndianDateString();
+    if (date > todayStr) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot record attendance for a future date.'
+      });
+    }
+
     const assignedBatch = batch || 'Both';
 
     for (const rec of records) {
@@ -511,6 +537,12 @@ async function saveManualAttendance(req, res) {
         `, [rec.ug_id, studentName, date, subject, studentBatch, newStatus, rec.remarks || 'Manual Admin Entry']);
       }
 
+      // Sync status to attendance_records if present
+      await db.run(
+        "UPDATE attendance_records SET status = ?, method = 'MANUAL' WHERE TRIM(UPPER(ug_id)) = TRIM(UPPER(?)) AND date = ? AND subject = ?",
+        [newStatus, rec.ug_id, date, subject]
+      );
+
       // Log to Audit Log if status changed or created manually
       if (oldStatus !== newStatus) {
         await db.run(`
@@ -543,16 +575,16 @@ async function getStudentAttendance(req, res) {
   try {
     const ugId = req.user.ug_id;
 
-    // Get all records from manual & QR logs for this student
+    // Get all records from manual & QR logs for this student (Manual roll call entries take precedence)
     const records = await db.query(`
-      SELECT date, subject, status, 'QR Scan Verified' as remarks, 'QR_GPS' as method, marked_at as timestamp
-      FROM attendance_records
-      WHERE TRIM(UPPER(ug_id)) = TRIM(UPPER(?))
-      UNION ALL
       SELECT date, subject, status, remarks, 'MANUAL' as method, created_at as timestamp
       FROM attendance_manual
-      WHERE TRIM(UPPER(ug_id)) = TRIM(UPPER(?)) AND ug_id NOT IN (
-        SELECT ug_id FROM attendance_records WHERE date = attendance_manual.date AND subject = attendance_manual.subject
+      WHERE TRIM(UPPER(ug_id)) = TRIM(UPPER(?))
+      UNION ALL
+      SELECT date, subject, status, 'QR Scan Verified' as remarks, 'QR_GPS' as method, marked_at as timestamp
+      FROM attendance_records
+      WHERE TRIM(UPPER(ug_id)) = TRIM(UPPER(?)) AND (date || '_' || subject) NOT IN (
+        SELECT (date || '_' || subject) FROM attendance_manual WHERE TRIM(UPPER(ug_id)) = TRIM(UPPER(?))
       )
       ORDER BY date DESC
     `, [ugId, ugId]);

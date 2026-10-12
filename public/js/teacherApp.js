@@ -980,7 +980,7 @@ const TeacherApp = {
           </div>
           <div>
             <label class="form-label" style="font-size:11.5px; font-weight:700;">Date</label>
-            <input type="date" id="quick-date-input" class="form-control" value="${todayStr}" onchange="TeacherApp.loadQuickRoster()" />
+            <input type="date" id="quick-date-input" class="form-control" value="${todayStr}" max="${todayStr}" onchange="TeacherApp.loadQuickRoster()" />
           </div>
         </div>
 
@@ -1078,7 +1078,15 @@ const TeacherApp = {
 
     const batch = batchSelect ? batchSelect.value : 'Batch 1';
     const subject = subjectSelect ? subjectSelect.value : '';
-    const date = dateInput ? dateInput.value : getIndianDateString();
+    const todayStr = getIndianDateString();
+    let date = dateInput ? dateInput.value : todayStr;
+    if (dateInput && dateInput.value > todayStr) {
+      if (window.App && window.App.showToast) {
+        window.App.showToast('Attendance cannot be recorded for a future date.', 'warning');
+      }
+      dateInput.value = todayStr;
+      date = todayStr;
+    }
     const period = periodSelect ? periodSelect.value : 'Lecture 1';
 
     // Reset feedback message & input on batch/filter change (clears stale data from previous batch)
@@ -1727,6 +1735,15 @@ const TeacherApp = {
   async executeSaveQuickAttendance() {
     if (!this.quickAttState) return;
     const { students, statusMap, subject, batch, date, period } = this.quickAttState;
+    const todayStr = getIndianDateString();
+
+    if (date > todayStr) {
+      if (window.App && window.App.showToast) {
+        window.App.showToast('Attendance cannot be recorded for a future date.', 'error');
+      }
+      return;
+    }
+
     const submitBtn = document.getElementById('btn-quick-confirm-submit');
     const mainSaveBtn = document.getElementById('btn-save-quick-att');
 
@@ -1862,7 +1879,7 @@ const TeacherApp = {
           </div>
           <div>
             <label class="form-label" style="font-size:12px;">Date</label>
-            <input type="date" id="manual-date-input" class="form-control" value="${todayStr}" onchange="TeacherApp.loadManualRoster()" />
+            <input type="date" id="manual-date-input" class="form-control" value="${todayStr}" max="${todayStr}" onchange="TeacherApp.loadManualRoster()" />
           </div>
         </div>
 
@@ -1887,7 +1904,16 @@ const TeacherApp = {
 
     const batch = document.getElementById('manual-batch-select').value;
     const subject = document.getElementById('manual-subject-select').value;
-    const date = document.getElementById('manual-date-input').value;
+    const dateInput = document.getElementById('manual-date-input');
+    const todayStr = getIndianDateString();
+    let date = dateInput ? dateInput.value : todayStr;
+    if (dateInput && dateInput.value > todayStr) {
+      if (window.App && window.App.showToast) {
+        window.App.showToast('Attendance cannot be recorded for a future date.', 'warning');
+      }
+      dateInput.value = todayStr;
+      date = todayStr;
+    }
 
     rosterBox.innerHTML = `<div style="text-align:center; padding:20px; color:var(--text-muted);">Loading roster...</div>`;
 
@@ -1997,6 +2023,15 @@ const TeacherApp = {
     const subject = document.getElementById('manual-subject-select').value;
     const batch = document.getElementById('manual-batch-select').value;
     const date = document.getElementById('manual-date-input').value;
+    const todayStr = getIndianDateString();
+
+    if (date > todayStr) {
+      if (window.App && window.App.showToast) {
+        window.App.showToast('Attendance cannot be recorded for a future date.', 'error');
+      }
+      return;
+    }
+
     const saveBtn = document.getElementById('btn-save-manual');
 
     const rows = document.querySelectorAll('#manual-roster-box tbody tr');
@@ -2074,7 +2109,7 @@ const TeacherApp = {
           </div>
           <div>
             <label class="form-label" style="font-size:12px;">Filter Date</label>
-            <input type="date" id="report-date-select" class="form-control" value="${todayStr}" onchange="TeacherApp.fetchReports()" />
+            <input type="date" id="report-date-select" class="form-control" value="${todayStr}" max="${todayStr}" onchange="TeacherApp.fetchReports()" />
           </div>
           <div>
             <label class="form-label" style="font-size:12px;">Batch</label>

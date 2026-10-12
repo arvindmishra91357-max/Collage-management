@@ -974,7 +974,7 @@ const AdminApp = {
             </p>
           </div>
           <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-            <input type="date" id="manual-date" class="form-control" value="${todayStr}" style="padding:7px 12px; font-size:12px; width:auto;" />
+            <input type="date" id="manual-date" class="form-control" value="${todayStr}" max="${todayStr}" style="padding:7px 12px; font-size:12px; width:auto;" />
             <select id="manual-subject" class="form-control" style="padding:7px 12px; font-size:12px; width:auto; font-weight:700;">
               <option value="DBMS">DBMS - Database Management</option>
               <option value="NCS">NCS - Network & Cyber Security</option>
@@ -1155,6 +1155,12 @@ const AdminApp = {
     const date = document.getElementById('manual-date').value;
     const subject = document.getElementById('manual-subject').value;
     const batchFilter = document.getElementById('manual-batch-filter')?.value || 'ALL';
+    const todayStr = (window.getIndianDateString ? window.getIndianDateString() : new Date().toISOString().split('T')[0]);
+
+    if (date > todayStr) {
+      window.App.showToast('Attendance cannot be recorded for a future date.', 'error');
+      return;
+    }
 
     const records = [];
     document.querySelectorAll('#manual-roster-table tbody tr').forEach(row => {
@@ -1270,7 +1276,7 @@ const AdminApp = {
           </div>
           <div>
             <label class="form-label" style="font-size:11.5px; font-weight:700;">Date</label>
-            <input type="date" id="admin-quick-date" class="form-control" value="${todayStr}" onchange="AdminApp.loadAdminQuickRoster()" />
+            <input type="date" id="admin-quick-date" class="form-control" value="${todayStr}" max="${todayStr}" onchange="AdminApp.loadAdminQuickRoster()" />
           </div>
         </div>
 
@@ -1363,7 +1369,14 @@ const AdminApp = {
 
     const batch = document.getElementById('admin-quick-batch')?.value || 'Batch 1';
     const subject = document.getElementById('admin-quick-subject')?.value || 'DBMS';
-    const date = document.getElementById('admin-quick-date')?.value || new Date().toISOString().split('T')[0];
+    const todayStr = (window.getIndianDateString ? window.getIndianDateString() : new Date().toISOString().split('T')[0]);
+    const dateInput = document.getElementById('admin-quick-date');
+    let date = dateInput?.value || todayStr;
+    if (dateInput && dateInput.value > todayStr) {
+      window.App.showToast('Attendance cannot be recorded for a future date.', 'warning');
+      dateInput.value = todayStr;
+      date = todayStr;
+    }
     const period = document.getElementById('admin-quick-period')?.value || 'Lecture 1';
 
     // Reset feedback message & input on batch/filter change (clears stale data from previous batch)
@@ -2002,6 +2015,13 @@ const AdminApp = {
   async executeSaveAdminQuickAttendance() {
     if (!this.quickAttState) return;
     const { students, statusMap, subject, batch, date, period } = this.quickAttState;
+    const todayStr = (window.getIndianDateString ? window.getIndianDateString() : new Date().toISOString().split('T')[0]);
+
+    if (date > todayStr) {
+      window.App.showToast('Attendance cannot be recorded for a future date.', 'error');
+      return;
+    }
+
     const submitBtn = document.getElementById('btn-admin-quick-confirm-submit');
     const mainSaveBtn = document.getElementById('btn-save-admin-quick');
 
