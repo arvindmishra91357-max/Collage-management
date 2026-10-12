@@ -55,6 +55,9 @@ const App = {
         AdminApp.init(user);
       } else if (user.role === 'TEACHER') {
         TeacherApp.init(user);
+      } else if (user.role === 'HOD') {
+        if (window.HodApp) HodApp.init(user);
+        else AdminApp.init(user);
       } else {
         StudentApp.init(user);
       }
@@ -212,6 +215,9 @@ const App = {
                 <button type="button" id="role-chip-teacher" class="role-chip" onclick="App.selectRoleChip('teacher')">
                   <span>👨‍🏫</span> Faculty
                 </button>
+                <button type="button" id="role-chip-hod" class="role-chip" onclick="App.selectRoleChip('hod')">
+                  <span>🏛️</span> HOD
+                </button>
               </div>
             </div>
 
@@ -341,6 +347,17 @@ const App = {
       }
       if (clearBtn) clearBtn.style.display = 'inline-flex';
       this.showToast('Faculty credentials filled (TESTTEACHER / TestTeacher@123). Ready to Sign In!', 'info');
+    } else if (role === 'hod') {
+      if (idInput) {
+        idInput.value = 'HOD_CSE';
+        idInput.placeholder = 'Enter HOD ID (HOD_CSE)';
+      }
+      if (passInput) {
+        passInput.value = 'Hod@123';
+        passInput.placeholder = 'Enter HOD Password (Hod@123)';
+      }
+      if (clearBtn) clearBtn.style.display = 'inline-flex';
+      this.showToast('HOD credentials filled (HOD_CSE / Hod@123). Ready to Sign In!', 'info');
     }
   },
 
@@ -638,6 +655,13 @@ const App = {
         } catch (e) {}
         this.showToast(`Welcome back, Prof. ${res.user.name}!${res.isOffline ? ' (Failsafe Active)' : ''}`, 'success');
         TeacherApp.init(res.user, 'dashboard');
+      } else if (res.user.role === 'HOD') {
+        try {
+          history.replaceState({ role: 'HOD', section: 'dashboard' }, '', '#hod-dashboard');
+        } catch (e) {}
+        this.showToast(`Welcome, Dr. ${res.user.name || 'HOD'}! Opening HOD Department Portal...`, 'success');
+        if (window.HodApp) HodApp.init(res.user, 'dashboard');
+        else AdminApp.init(res.user, 'dashboard');
       } else {
         try {
           history.replaceState({ role: 'STUDENT', tab: 'home' }, '', '#home');

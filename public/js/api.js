@@ -1464,6 +1464,159 @@ const API = {
       method: 'PUT',
       body: JSON.stringify(assignmentData)
     });
+  },
+
+  // ==================== HOD PORTAL API METHODS ====================
+  // Module 1: Dashboard
+  getHodDashboard() {
+    return this.request('/api/hod/dashboard');
+  },
+
+  // Module 2: Profile
+  getHodProfile() {
+    return this.request('/api/hod/profile');
+  },
+  updateHodProfile(data) {
+    return this.request('/api/hod/profile', {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  },
+
+  // Module 3: Faculty
+  getHodFaculty(params = {}) {
+    const qs = new URLSearchParams(params).toString();
+    return this.request(`/api/hod/faculty${qs ? '?' + qs : ''}`);
+  },
+  getHodFacultyDetails(id) {
+    return this.request(`/api/hod/faculty/${id}`);
+  },
+  updateHodFacultyAssignments(id, data) {
+    return this.request(`/api/hod/faculty/${id}/assignments`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  },
+
+  // Module 4: Students
+  getHodStudents(params = {}) {
+    const qs = new URLSearchParams(params).toString();
+    return this.request(`/api/hod/students${qs ? '?' + qs : ''}`);
+  },
+  getHodStudentProfile(ug_id) {
+    return this.request(`/api/hod/students/${encodeURIComponent(ug_id)}`);
+  },
+
+  // Module 5: Subjects
+  getHodSubjects() {
+    return this.request('/api/hod/subjects');
+  },
+  createHodSubject(data) {
+    return this.request('/api/hod/subjects', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+  updateHodSubject(id, data) {
+    return this.request(`/api/hod/subjects/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  },
+
+  // Module 6: Timetable
+  getHodTimetable(params = {}) {
+    const qs = new URLSearchParams(params).toString();
+    return this.request(`/api/hod/timetable${qs ? '?' + qs : ''}`);
+  },
+  createHodTimetable(data) {
+    return this.request('/api/hod/timetable', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+  getHodTimetableConflicts() {
+    return this.request('/api/hod/timetable/conflicts');
+  },
+
+  // Module 7: Attendance
+  getHodAttendance(params = {}) {
+    const qs = new URLSearchParams(params).toString();
+    return this.request(`/api/hod/attendance${qs ? '?' + qs : ''}`);
+  },
+
+  // Module 8: Internal Marks
+  getHodMarks(params = {}) {
+    const qs = new URLSearchParams(params).toString();
+    return this.request(`/api/hod/marks${qs ? '?' + qs : ''}`);
+  },
+  reviewHodMarks(id, data) {
+    return this.request(`/api/hod/marks/${id}/review`, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
+  // Module 9: Assignments
+  getHodAssignments() {
+    return this.request('/api/hod/assignments');
+  },
+
+  // Module 10: Exams
+  getHodExams() {
+    return this.request('/api/hod/exams');
+  },
+  createHodExam(data) {
+    return this.request('/api/hod/exams', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
+  // Module 11: Workload
+  getHodWorkload(params = {}) {
+    const qs = new URLSearchParams(params).toString();
+    return this.request(`/api/hod/workload${qs ? '?' + qs : ''}`);
+  },
+
+  // Module 12: Leaves
+  getHodLeaves(params = {}) {
+    const qs = new URLSearchParams(params).toString();
+    return this.request(`/api/hod/leaves${qs ? '?' + qs : ''}`);
+  },
+  reviewHodLeave(id, data) {
+    return this.request(`/api/hod/leaves/${id}/review`, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
+  // Module 13: Mentoring
+  getHodMentoring() {
+    return this.request('/api/hod/mentoring');
+  },
+  createHodMentoring(data) {
+    return this.request('/api/hod/mentoring', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
+  // Module 14: Reports
+  getHodReports() {
+    return this.request('/api/hod/reports');
+  },
+
+  // Module 15: Approvals Hub
+  getHodApprovals(params = {}) {
+    const qs = new URLSearchParams(params).toString();
+    return this.request(`/api/hod/approvals${qs ? '?' + qs : ''}`);
+  },
+  processHodApproval(id, data) {
+    return this.request(`/api/hod/approvals/${id}/process`, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
   }
 };
 
