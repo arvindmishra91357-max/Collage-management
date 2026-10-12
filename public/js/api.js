@@ -227,6 +227,20 @@ const API = {
     }
   },
 
+  getFileUrl(url) {
+    if (!url) return '';
+    if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:') || url.startsWith('blob:')) {
+      return url;
+    }
+    const cleanPath = url.startsWith('/') ? url : `/${url}`;
+    const base = (this.baseUrl || '').replace(/\/+$/, '');
+    const isFile = typeof window !== 'undefined' && window.location && (window.location.protocol === 'file:' || window.location.origin === 'null');
+    if (isFile || (base && typeof window !== 'undefined' && window.location && !base.includes(window.location.host))) {
+      return `${base}${cleanPath}`;
+    }
+    return cleanPath;
+  },
+
   getToken() {
     return localStorage.getItem('pu_auth_token') || null;
   },
@@ -1173,6 +1187,7 @@ const API = {
       academic_year: '2026-27',
       is_cr: (s.ug_id === '26UG033181' || s.ug_id === '26UG034141') ? 1 : 0,
       cr_batches: s.ug_id === '26UG033181' ? 'Both' : (s.ug_id === '26UG034141' ? 'Batch 1' : null),
+      profile_photo_url: s.profile_photo_url || null,
       status: 'ACTIVE'
     }));
 

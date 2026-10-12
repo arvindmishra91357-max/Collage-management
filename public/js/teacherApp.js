@@ -98,7 +98,7 @@ const TeacherApp = {
   renderLayout() {
     const root = document.getElementById('app-root');
     const user = this.currentUser || {};
-    const photoUrl = user.profile_photo_url || './favicon.svg';
+    const photoUrl = (API.getFileUrl && user.profile_photo_url) ? API.getFileUrl(user.profile_photo_url) : (user.profile_photo_url || './favicon.svg');
 
     root.innerHTML = `
       <div class="admin-layout teacher-layout">
@@ -164,7 +164,7 @@ const TeacherApp = {
           </div>
 
           <div style="padding:14px 16px; margin-top:auto; border-top:1px solid var(--border-color); display:flex; align-items:center; gap:10px;">
-            <img src="${photoUrl}" alt="Faculty" style="width:34px; height:34px; border-radius:50%; object-fit:cover; border:1px solid var(--border-color);" onerror="this.src='./favicon.svg'" />
+            <img src="${photoUrl}" id="teacher-sidebar-avatar" alt="Faculty" style="width:34px; height:34px; border-radius:50%; object-fit:cover; border:1px solid var(--border-color);" onerror="this.src='./favicon.svg'" />
             <div style="flex:1; min-width:0;">
               <div style="font-size:12.5px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${user.name || 'Faculty Member'}</div>
               <div style="font-size:11px; color:var(--text-muted);">${user.teacher_id || 'TEACHER'}</div>
@@ -1263,7 +1263,14 @@ const TeacherApp = {
 
     // Parse roll numbers and ranges (e.g. 1-10, 15, 18 22, 20 to 25)
     const normalized = raw.replace(/\bto\b/gi, '-').replace(/\s*-\s*/g, '-');
-    const tokens = normalized.split(/[,;\s\n\t]+/);
+    const hasTrailingDelimiter = /[,;\s\n\t]$/.test(raw);
+    let tokens = normalized.split(/[,;\s\n\t]+/);
+
+    // If actively typing and text does NOT end with a delimiter, the trailing token is in-progress (e.g. user typed "2" while writing "23").
+    // Do NOT parse incomplete trailing token until user finishes it with delimiter, Enter, or pause!
+    if (isTyping && !hasTrailingDelimiter && tokens.length > 0) {
+      tokens = tokens.slice(0, tokens.length - 1);
+    }
     const candidateRolls = [];
 
     tokens.forEach(tok => {
@@ -1557,16 +1564,14 @@ const TeacherApp = {
       const val = newInput.value;
       if (!val || !val.trim()) return;
 
-      // If text has delimiter (comma, space, semicolon, newline) or range (1-10)
-      if (/[,;\s\n\t]/.test(val) || val.includes('-') || val.toLowerCase().includes('to')) {
-        TeacherApp.processQuickRollText(val, true);
-      } else {
-        // Single digit in progress -> debounce 350ms so typing "12" doesn't mark 1
-        clearTimeout(typingTimer);
-        typingTimer = setTimeout(() => {
-          TeacherApp.processQuickRollText(newInput.value, true);
-        }, 350);
-      }
+      // Immediately process completed tokens (those followed by a delimiter)
+      TeacherApp.processQuickRollText(val, true);
+
+      // Debounce timer for the trailing in-progress token: if user pauses typing for 500ms, commit it
+      clearTimeout(typingTimer);
+      typingTimer = setTimeout(() => {
+        TeacherApp.processQuickRollText(newInput.value, false);
+      }, 500);
     });
 
     // 2. PASTE EVENT: instant bulk parsing on paste (0ms delay)
@@ -2282,7 +2287,7 @@ const TeacherApp = {
               <td><code>${s.ug_id}</code></td>
               <td>
                 <div style="display:flex; align-items:center; gap:8px;">
-                  <img src="${s.profile_photo_url || './favicon.svg'}" alt="" style="width:26px; height:26px; border-radius:50%; object-fit:cover;" onerror="this.src='./favicon.svg'" />
+                  <img src="${(API.getFileUrl && s.profile_photo_url) ? API.getFileUrl(s.profile_photo_url) : (s.profile_photo_url || './favicon.svg')}" alt="" style="width:26px; height:26px; border-radius:50%; object-fit:cover;" onerror="this.src='./favicon.svg'" />
                   <strong>${s.name}</strong>
                 </div>
               </td>
@@ -2340,7 +2345,7 @@ const TeacherApp = {
       <div class="modal-card" style="max-width:640px; padding:24px; max-height:85vh; overflow-y:auto;" onclick="event.stopPropagation()">
         <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;">
           <div style="display:flex; align-items:center; gap:14px;">
-            <img src="${student.profile_photo_url || './favicon.svg'}" alt="" style="width:52px; height:52px; border-radius:50%; object-fit:cover; border:2px solid #38bdf8;" onerror="this.src='./favicon.svg'" />
+            <img src="${(API.getFileUrl && student.profile_photo_url) ? API.getFileUrl(student.profile_photo_url) : (student.profile_photo_url || './favicon.svg')}" alt="" style="width:52px; height:52px; border-radius:50%; object-fit:cover; border:2px solid #38bdf8;" onerror="this.src='./favicon.svg'" />
             <div>
               <h3 style="font-size:17px; font-weight:800; margin:0;">${student.name}</h3>
               <div style="font-size:12.5px; color:var(--text-secondary); margin-top:2px;">
@@ -3452,8 +3457,11 @@ const TeacherApp = {
 
     if (res && res.success && res.profile_photo_url) {
       App.showToast('Profile photo updated!', 'success');
+      const resolvedUrl = (API.getFileUrl ? API.getFileUrl(res.profile_photo_url) : res.profile_photo_url) + '?t=' + Date.now();
       const img = document.getElementById('teacher-profile-img');
-      if (img) img.src = res.profile_photo_url;
+      if (img) img.src = resolvedUrl;
+      const sidebarAvatar = document.getElementById('teacher-sidebar-avatar');
+      if (sidebarAvatar) sidebarAvatar.src = resolvedUrl;
       this.currentUser.profile_photo_url = res.profile_photo_url;
       API.setUser(this.currentUser);
     } else {

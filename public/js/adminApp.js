@@ -528,8 +528,13 @@ const AdminApp = {
                   <td><strong>#${s.roll_number}</strong></td>
                   <td><span style="font-family:monospace; color:#38bdf8; font-weight:700;">${s.ug_id}</span></td>
                   <td>
-                    <div style="font-weight:700; color:var(--text-primary);">${s.name}</div>
-                    ${s.is_cr === 1 ? `<span style="font-size:11px; color:#fbbf24; font-weight:800; display:inline-flex; align-items:center; gap:4px; margin-top:2px;">👑 CR (${s.cr_batches || 'Both'})</span>` : ''}
+                    <div style="display:flex; align-items:center; gap:8px;">
+                      <img src="${(API.getFileUrl && s.profile_photo_url) ? API.getFileUrl(s.profile_photo_url) : './favicon.svg'}" alt="" style="width:26px; height:26px; border-radius:50%; object-fit:cover;" onerror="this.src='./favicon.svg'" />
+                      <div>
+                        <div style="font-weight:700; color:var(--text-primary);">${s.name}</div>
+                        ${s.is_cr === 1 ? `<span style="font-size:11px; color:#fbbf24; font-weight:800; display:inline-flex; align-items:center; gap:4px; margin-top:2px;">👑 CR (${s.cr_batches || 'Both'})</span>` : ''}
+                      </div>
+                    </div>
                   </td>
                   <td>
                     ${s.is_cr === 1 ? `<span class="lab-chip" style="background:rgba(245,158,11,0.2); color:#fbbf24; border:1px solid rgba(245,158,11,0.4);">👑 CR (${s.cr_batches || 'Both'})</span>` : '<span style="font-size:12px; color:var(--text-muted);">Student</span>'}
@@ -1540,7 +1545,15 @@ const AdminApp = {
 
     // Parse roll numbers and ranges (e.g. 1-10, 15, 18 22, 20 to 25)
     const normalized = raw.replace(/\bto\b/gi, '-').replace(/\s*-\s*/g, '-');
-    const tokens = normalized.split(/[,;\s\n\t]+/);
+    const hasTrailingDelimiter = /[,;\s\n\t]$/.test(raw);
+    let tokens = normalized.split(/[,;\s\n\t]+/);
+
+    // If actively typing and text does NOT end with a delimiter, the trailing token is in-progress (e.g. user typed "2" while writing "23").
+    // Do NOT parse incomplete trailing token until user finishes it with delimiter, Enter, or pause!
+    if (isTyping && !hasTrailingDelimiter && tokens.length > 0) {
+      tokens = tokens.slice(0, tokens.length - 1);
+    }
+
     const candidateRolls = [];
 
     tokens.forEach(tok => {
@@ -1828,14 +1841,14 @@ const AdminApp = {
       const val = newInput.value;
       if (!val || !val.trim()) return;
 
-      if (/[,;\s\n\t]/.test(val) || val.includes('-') || val.toLowerCase().includes('to')) {
-        AdminApp.processAdminQuickRollText(val, true);
-      } else {
-        clearTimeout(typingTimer);
-        typingTimer = setTimeout(() => {
-          AdminApp.processAdminQuickRollText(newInput.value, true);
-        }, 350);
-      }
+      // Immediately process completed tokens (those followed by a delimiter)
+      AdminApp.processAdminQuickRollText(val, true);
+
+      // Debounce timer for the trailing in-progress token: if user pauses typing for 500ms, commit it
+      clearTimeout(typingTimer);
+      typingTimer = setTimeout(() => {
+        AdminApp.processAdminQuickRollText(newInput.value, false);
+      }, 500);
     });
 
     newInput.addEventListener('paste', () => {
@@ -4249,9 +4262,14 @@ const AdminApp = {
                       <span class="auth-badge" style="margin-top:0; font-family:monospace; font-weight:700;">${t.teacher_id}</span>
                     </td>
                     <td style="padding:12px;">
-                      <div style="font-weight:700; color:var(--text-primary);">${t.name}</div>
-                      <div style="font-size:11px; color:var(--text-muted);">${t.designation || 'Faculty'}</div>
-                      ${t.email ? `<div style="font-size:10.5px; color:var(--text-muted);">${t.email}</div>` : ''}
+                      <div style="display:flex; align-items:center; gap:8px;">
+                        <img src="${(API.getFileUrl && t.profile_photo_url) ? API.getFileUrl(t.profile_photo_url) : './favicon.svg'}" alt="" style="width:28px; height:28px; border-radius:50%; object-fit:cover;" onerror="this.src='./favicon.svg'" />
+                        <div>
+                          <div style="font-weight:700; color:var(--text-primary);">${t.name}</div>
+                          <div style="font-size:11px; color:var(--text-muted);">${t.designation || 'Faculty'}</div>
+                          ${t.email ? `<div style="font-size:10.5px; color:var(--text-muted);">${t.email}</div>` : ''}
+                        </div>
+                      </div>
                     </td>
                     <td style="padding:12px; color:var(--text-secondary); font-size:12px;">
                       ${t.department || 'Computer Science & Eng.'}

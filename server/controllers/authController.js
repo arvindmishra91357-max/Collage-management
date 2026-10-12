@@ -223,7 +223,10 @@ async function uploadProfilePhoto(req, res) {
     const photoUrl = `/uploads/photos/${req.file.filename}`;
     const ugId = req.user.ug_id;
 
-    await db.run("UPDATE students SET profile_photo_url = ?, updated_at = CURRENT_TIMESTAMP WHERE ug_id = ?", [photoUrl, ugId]);
+    await db.run(
+      "UPDATE students SET profile_photo_url = ?, updated_at = CURRENT_TIMESTAMP WHERE UPPER(ug_id) = UPPER(?) OR id = ?",
+      [photoUrl, ugId || '', req.user.id || 0]
+    );
 
     // Persist photo to database / cloud storage
     await persistUploadedFile(req.file, photoUrl);

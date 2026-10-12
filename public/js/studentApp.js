@@ -2354,8 +2354,8 @@ const StudentApp = {
       <!-- Profile Header Card (Requirement #10, #11) -->
       <div class="glass-card" style="padding:22px; margin-bottom:20px; text-align:center;">
         <div style="position:relative; width:90px; height:90px; margin:0 auto 14px;">
-          <img src="${profile.profile_photo_url || '/icons/icon-192.svg'}" id="profile-display-photo"
-               style="width:90px; height:90px; border-radius:50%; object-fit:cover; border:3px solid var(--primary); background:#0f172a;" />
+          <img src="${(API.getFileUrl && profile.profile_photo_url) ? API.getFileUrl(profile.profile_photo_url) : (profile.profile_photo_url || '/icons/icon-192.svg')}" id="profile-display-photo"
+               style="width:90px; height:90px; border-radius:50%; object-fit:cover; border:3px solid var(--primary); background:#0f172a;" onerror="this.src='/icons/icon-192.svg'" />
           <button class="icon-btn" onclick="StudentApp.openPhotoUploadModal()" style="position:absolute; bottom:0; right:0; width:30px; height:30px; background:var(--primary); color:#ffffff;" title="Change Profile Photo">
             ✎
           </button>
@@ -2617,6 +2617,8 @@ const StudentApp = {
       this.currentUser.profile_photo_url = res.profile_photo_url;
       API.setUser(this.currentUser);
       this.closeModal('photo-modal');
+      const img = document.getElementById('profile-display-photo');
+      if (img) img.src = (API.getFileUrl ? API.getFileUrl(res.profile_photo_url) : res.profile_photo_url) + '?t=' + Date.now();
       this.loadTabData('profile');
     } else {
       window.App.showToast(res.message || 'Failed to upload photo.', 'error');

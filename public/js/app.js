@@ -216,7 +216,7 @@ const App = {
             </div>
 
             <!-- Unified Login Form -->
-            <form id="unified-login-form" onsubmit="event.preventDefault(); App.handleUnifiedLogin();" autocomplete="on">
+            <form id="unified-login-form" action="javascript:void(0);" method="post" onsubmit="event.preventDefault(); App.handleUnifiedLogin(); return false;" autocomplete="on">
               
               <div class="form-group">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
@@ -403,9 +403,20 @@ const App = {
       if (switchHint) switchHint.style.display = val ? 'inline' : 'none';
     });
 
-    // Smart PC keyboard Enter navigation: moves focus to password or submits
+    // Prevent native form submission reloads across all browsers & mobile WebViews
+    const loginForm = document.getElementById('unified-login-form');
+    if (loginForm) {
+      loginForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        App.handleUnifiedLogin();
+        return false;
+      });
+    }
+
+    // Smart keyboard Enter navigation: moves focus to password or submits
     idInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
+      const isEnter = e.key === 'Enter' || e.keyCode === 13 || e.which === 13;
+      if (isEnter) {
         e.preventDefault();
         if (passInput && !passInput.value) {
           passInput.focus();
@@ -417,7 +428,8 @@ const App = {
 
     if (passInput) {
       passInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
+        const isEnter = e.key === 'Enter' || e.keyCode === 13 || e.which === 13;
+        if (isEnter) {
           e.preventDefault();
           App.handleUnifiedLogin();
         }
