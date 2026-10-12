@@ -53,6 +53,8 @@ const App = {
     if (token && user) {
       if (user.role === 'ADMIN') {
         AdminApp.init(user);
+      } else if (user.role === 'HOD') {
+        HodApp.init(user);
       } else if (user.role === 'TEACHER') {
         TeacherApp.init(user);
       } else {
@@ -212,6 +214,9 @@ const App = {
                 <button type="button" id="role-chip-teacher" class="role-chip" onclick="App.selectRoleChip('teacher')">
                   <span>👨‍🏫</span> Faculty
                 </button>
+                <button type="button" id="role-chip-hod" class="role-chip" onclick="App.selectRoleChip('hod')">
+                  <span>🏛️</span> HOD
+                </button>
               </div>
             </div>
 
@@ -341,6 +346,17 @@ const App = {
       }
       if (clearBtn) clearBtn.style.display = 'inline-flex';
       this.showToast('Faculty credentials filled (TESTTEACHER / TestTeacher@123). Ready to Sign In!', 'info');
+    } else if (role === 'hod') {
+      if (idInput) {
+        idInput.value = 'HOD_CSE';
+        idInput.placeholder = 'Enter HOD ID (HOD_CSE)';
+      }
+      if (passInput) {
+        passInput.value = 'Hod@123';
+        passInput.placeholder = 'Enter HOD Password (e.g. Hod@123)';
+      }
+      if (clearBtn) clearBtn.style.display = 'inline-flex';
+      this.showToast('HOD credentials filled (HOD_CSE / Hod@123). Ready to Sign In!', 'info');
     }
   },
 
@@ -632,6 +648,12 @@ const App = {
         } catch (e) {}
         this.showToast(res.isOffline ? 'Admin login verified (Netlify Standalone Mode).' : 'Admin login verified. Opening Admin Dashboard...', 'success');
         AdminApp.init(res.user, 'dashboard');
+      } else if (res.user.role === 'HOD') {
+        try {
+          history.replaceState({ role: 'HOD', section: 'dashboard' }, '', '#hod-dashboard');
+        } catch (e) {}
+        this.showToast(`Welcome back, ${res.user.name}! HOD Portal Access Granted.`, 'success');
+        HodApp.init(res.user, 'dashboard');
       } else if (res.user.role === 'TEACHER') {
         try {
           history.replaceState({ role: 'TEACHER', section: 'dashboard' }, '', '#teacher-dashboard');

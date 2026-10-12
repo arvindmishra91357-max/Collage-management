@@ -453,6 +453,41 @@ const API = {
       }
     }
 
+    // A2. Check HOD Credentials (HOD_CSE / Hod@123)
+    if (idUpper === 'HOD' || idUpper === 'HOD_CSE' || idUpper === 'HOD-CSE' || idUpper === 'HODCSE') {
+      const customHodPass = customPasswords['HOD_CSE'] || customPasswords['HOD'];
+      const isHodPassMatch = (
+        (customHodPass && password === customHodPass) ||
+        password === 'Hod@123' ||
+        password === 'hod123' ||
+        password === 'hod'
+      );
+      if (isHodPassMatch) {
+        const hodUser = {
+          id: 90,
+          role: 'HOD',
+          username: 'HOD_CSE',
+          name: 'Prof. (Dr.) A. K. Sharma',
+          department: 'Computer Science & Engineering',
+          dept_code: 'CSE',
+          designation: 'Head of Department'
+        };
+        const token = 'mgi_offline_token_hod_cse_' + Date.now();
+        this.setToken(token);
+        this.setUser(hodUser);
+        this.cacheItem('user_profile', hodUser);
+        return {
+          success: true,
+          token,
+          user: hodUser,
+          isOffline: true,
+          message: 'Welcome back, Prof. (Dr.) A. K. Sharma! (HOD Portal Failsafe Active)'
+        };
+      } else {
+        return { success: false, message: 'Invalid HOD password. Default is Hod@123.' };
+      }
+    }
+
     // B. Check Teacher Credentials (TESTTEACHER or any custom registered teacher in localStorage)
     let offlineTeachers = [];
     try {
@@ -1463,6 +1498,181 @@ const API = {
     return this.request(`/api/admin/teachers/${id}/assignments`, {
       method: 'PUT',
       body: JSON.stringify(assignmentData)
+    });
+  },
+
+  // ==================== HOD PORTAL API METHODS (15 MODULES) ====================
+  // Module 1: Dashboard
+  getHodDashboard() {
+    return this.request('/api/hod/dashboard');
+  },
+
+  // Module 2: Department Profile
+  getHodProfile() {
+    return this.request('/api/hod/profile');
+  },
+  updateHodProfile(profileData) {
+    return this.request('/api/hod/profile', {
+      method: 'PUT',
+      body: JSON.stringify(profileData)
+    });
+  },
+
+  // Module 3: Faculty Management
+  getHodFaculty(params = {}) {
+    const q = new URLSearchParams(params).toString();
+    return this.request(`/api/hod/faculty${q ? '?' + q : ''}`);
+  },
+  getHodFacultyById(id) {
+    return this.request(`/api/hod/faculty/${id}`);
+  },
+  createHodFaculty(facultyData) {
+    return this.request('/api/hod/faculty', {
+      method: 'POST',
+      body: JSON.stringify(facultyData)
+    });
+  },
+  updateHodFaculty(id, facultyData) {
+    return this.request(`/api/hod/faculty/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(facultyData)
+    });
+  },
+
+  // Module 4: Student Management
+  getHodStudents(params = {}) {
+    const q = new URLSearchParams(params).toString();
+    return this.request(`/api/hod/students${q ? '?' + q : ''}`);
+  },
+  getHodStudentById(id) {
+    return this.request(`/api/hod/students/${id}`);
+  },
+
+  // Module 5: Subject Management
+  getHodSubjects() {
+    return this.request('/api/hod/subjects');
+  },
+  createHodSubject(subjectData) {
+    return this.request('/api/hod/subjects', {
+      method: 'POST',
+      body: JSON.stringify(subjectData)
+    });
+  },
+  updateHodSubject(id, subjectData) {
+    return this.request(`/api/hod/subjects/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(subjectData)
+    });
+  },
+
+  // Module 6: Timetable Management
+  getHodTimetable(params = {}) {
+    const q = new URLSearchParams(params).toString();
+    return this.request(`/api/hod/timetable${q ? '?' + q : ''}`);
+  },
+  createHodTimetableEntry(slotData) {
+    return this.request('/api/hod/timetable', {
+      method: 'POST',
+      body: JSON.stringify(slotData)
+    });
+  },
+  updateHodTimetableEntry(id, slotData) {
+    return this.request(`/api/hod/timetable/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(slotData)
+    });
+  },
+  deleteHodTimetableEntry(id) {
+    return this.request(`/api/hod/timetable/${id}`, { method: 'DELETE' });
+  },
+
+  // Module 7: Attendance Management
+  getHodAttendance(params = {}) {
+    const q = new URLSearchParams(params).toString();
+    return this.request(`/api/hod/attendance${q ? '?' + q : ''}`);
+  },
+
+  // Module 8: Internal Marks
+  getHodInternalMarks(params = {}) {
+    const q = new URLSearchParams(params).toString();
+    return this.request(`/api/hod/internal-marks${q ? '?' + q : ''}`);
+  },
+  reviewHodInternalMarks(reviewData) {
+    return this.request('/api/hod/internal-marks/review', {
+      method: 'POST',
+      body: JSON.stringify(reviewData)
+    });
+  },
+
+  // Module 9: Assignments
+  getHodAssignments(params = {}) {
+    const q = new URLSearchParams(params).toString();
+    return this.request(`/api/hod/assignments${q ? '?' + q : ''}`);
+  },
+
+  // Module 10: Examination Management
+  getHodExams() {
+    return this.request('/api/hod/exams');
+  },
+  createHodExam(examData) {
+    return this.request('/api/hod/exams', {
+      method: 'POST',
+      body: JSON.stringify(examData)
+    });
+  },
+  updateHodExam(id, examData) {
+    return this.request(`/api/hod/exams/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(examData)
+    });
+  },
+  deleteHodExam(id) {
+    return this.request(`/api/hod/exams/${id}`, { method: 'DELETE' });
+  },
+
+  // Module 11: Faculty Workload
+  getHodWorkload() {
+    return this.request('/api/hod/workload');
+  },
+
+  // Module 12: Leave Approval
+  getHodLeaves(params = {}) {
+    const q = new URLSearchParams(params).toString();
+    return this.request(`/api/hod/leaves${q ? '?' + q : ''}`);
+  },
+  reviewHodLeave(id, reviewData) {
+    return this.request(`/api/hod/leaves/${id}/review`, {
+      method: 'POST',
+      body: JSON.stringify(reviewData)
+    });
+  },
+
+  // Module 13: Student Mentoring
+  getHodMentoring(params = {}) {
+    const q = new URLSearchParams(params).toString();
+    return this.request(`/api/hod/mentoring${q ? '?' + q : ''}`);
+  },
+  createHodMentoringRecord(recordData) {
+    return this.request('/api/hod/mentoring', {
+      method: 'POST',
+      body: JSON.stringify(recordData)
+    });
+  },
+
+  // Module 14: Department Reports
+  getHodReports(report_type = 'attendance') {
+    return this.request(`/api/hod/reports?report_type=${encodeURIComponent(report_type)}`);
+  },
+
+  // Module 15: Central HOD Approvals Queue
+  getHodApprovals(params = {}) {
+    const q = new URLSearchParams(params).toString();
+    return this.request(`/api/hod/approvals${q ? '?' + q : ''}`);
+  },
+  processHodApproval(id, processData) {
+    return this.request(`/api/hod/approvals/${id}/process`, {
+      method: 'POST',
+      body: JSON.stringify(processData)
     });
   }
 };

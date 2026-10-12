@@ -10,7 +10,7 @@ const multer = require('multer');
 const rateLimit = require('express-rate-limit');
 
 const db = require('./db');
-const { authenticateToken, requireAdmin, requireStudent, requireTeacher, requireTeacherOrAdmin } = require('./middleware/auth');
+const { authenticateToken, requireAdmin, requireStudent, requireTeacher, requireTeacherOrAdmin, requireHOD } = require('./middleware/auth');
 const { uploadPhoto, uploadDocument, getMimeType, retrieveFile } = require('./services/storageService');
 const { ensureSampleFiles } = require('./services/seedFiles');
 const realtime = require('./realtime');
@@ -27,6 +27,7 @@ const notifCtrl = require('./controllers/notificationController');
 const aiCtrl = require('./controllers/aiController');
 const searchCtrl = require('./controllers/searchController');
 const teacherCtrl = require('./controllers/teacherController');
+const hodCtrl = require('./controllers/hodController');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -116,6 +117,7 @@ app.get('/api/health', async (req, res) => {
 app.post('/api/auth/login', authLimiter, authCtrl.unifiedLogin);
 app.post('/api/auth/student-login', authLimiter, authCtrl.studentLogin);
 app.post('/api/auth/admin-login', authLimiter, authCtrl.adminLogin);
+app.post('/api/auth/hod-login', authLimiter, authCtrl.hodLogin);
 app.post('/api/auth/forgot-password', authLimiter, authCtrl.forgotPassword);
 app.post('/api/auth/change-password', authenticateToken, authCtrl.changePassword);
 app.get('/api/auth/profile', authenticateToken, authCtrl.getProfile);
@@ -283,6 +285,71 @@ app.post('/api/teacher/results', authenticateToken, requireTeacher, teacherCtrl.
 // Announcements & Notifications
 app.get('/api/teacher/notifications', authenticateToken, requireTeacher, teacherCtrl.getNotifications);
 app.post('/api/teacher/notifications', authenticateToken, requireTeacher, teacherCtrl.createNotification);
+
+// ==================== HOD PORTAL ROUTES (ALL 15 MODULES) ====================
+// Module 1: Department Dashboard
+app.get('/api/hod/dashboard', authenticateToken, requireHOD, hodCtrl.getDashboard);
+
+// Module 2: Department Profile
+app.get('/api/hod/profile', authenticateToken, requireHOD, hodCtrl.getProfile);
+app.put('/api/hod/profile', authenticateToken, requireHOD, hodCtrl.updateProfile);
+
+// Module 3: Faculty Management
+app.get('/api/hod/faculty', authenticateToken, requireHOD, hodCtrl.getFaculty);
+app.get('/api/hod/faculty/:id', authenticateToken, requireHOD, hodCtrl.getFacultyById);
+app.post('/api/hod/faculty', authenticateToken, requireHOD, hodCtrl.createFaculty);
+app.put('/api/hod/faculty/:id', authenticateToken, requireHOD, hodCtrl.updateFaculty);
+
+// Module 4: Student Management
+app.get('/api/hod/students', authenticateToken, requireHOD, hodCtrl.getStudents);
+app.get('/api/hod/students/export', authenticateToken, requireHOD, hodCtrl.exportStudentsCSV);
+app.get('/api/hod/students/:id', authenticateToken, requireHOD, hodCtrl.getStudentById);
+
+// Module 5: Subject Management
+app.get('/api/hod/subjects', authenticateToken, requireHOD, hodCtrl.getSubjects);
+app.post('/api/hod/subjects', authenticateToken, requireHOD, hodCtrl.createSubject);
+app.put('/api/hod/subjects/:id', authenticateToken, requireHOD, hodCtrl.updateSubject);
+
+// Module 6: Timetable Management
+app.get('/api/hod/timetable', authenticateToken, requireHOD, hodCtrl.getTimetable);
+app.post('/api/hod/timetable', authenticateToken, requireHOD, hodCtrl.createTimetableEntry);
+app.put('/api/hod/timetable/:id', authenticateToken, requireHOD, hodCtrl.updateTimetableEntry);
+app.delete('/api/hod/timetable/:id', authenticateToken, requireHOD, hodCtrl.deleteTimetableEntry);
+
+// Module 7: Attendance Management
+app.get('/api/hod/attendance', authenticateToken, requireHOD, hodCtrl.getAttendanceOverview);
+
+// Module 8: Internal Marks
+app.get('/api/hod/internal-marks', authenticateToken, requireHOD, hodCtrl.getInternalMarks);
+app.post('/api/hod/internal-marks/review', authenticateToken, requireHOD, hodCtrl.reviewInternalMarks);
+
+// Module 9: Assignments
+app.get('/api/hod/assignments', authenticateToken, requireHOD, hodCtrl.getAssignments);
+
+// Module 10: Examination Management
+app.get('/api/hod/exams', authenticateToken, requireHOD, hodCtrl.getExams);
+app.post('/api/hod/exams', authenticateToken, requireHOD, hodCtrl.createExam);
+app.put('/api/hod/exams/:id', authenticateToken, requireHOD, hodCtrl.updateExam);
+app.delete('/api/hod/exams/:id', authenticateToken, requireHOD, hodCtrl.deleteExam);
+
+// Module 11: Faculty Workload
+app.get('/api/hod/workload', authenticateToken, requireHOD, hodCtrl.getFacultyWorkload);
+
+// Module 12: Leave Approval
+app.get('/api/hod/leaves', authenticateToken, requireHOD, hodCtrl.getLeaves);
+app.post('/api/hod/leaves/:id/review', authenticateToken, requireHOD, hodCtrl.reviewLeave);
+
+// Module 13: Student Mentoring
+app.get('/api/hod/mentoring', authenticateToken, requireHOD, hodCtrl.getMentoringRecords);
+app.post('/api/hod/mentoring', authenticateToken, requireHOD, hodCtrl.createMentoringRecord);
+
+// Module 14: Department Reports
+app.get('/api/hod/reports', authenticateToken, requireHOD, hodCtrl.getReports);
+app.get('/api/hod/reports/export', authenticateToken, requireHOD, hodCtrl.exportReportCSV);
+
+// Module 15: Central HOD Approvals Queue
+app.get('/api/hod/approvals', authenticateToken, requireHOD, hodCtrl.getApprovalsQueue);
+app.post('/api/hod/approvals/:id/process', authenticateToken, requireHOD, hodCtrl.processApproval);
 
 // 11. Admin Dashboard Stats
 app.get('/api/admin/dashboard-stats', authenticateToken, requireAdmin, async (req, res) => {

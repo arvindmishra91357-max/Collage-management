@@ -65,6 +65,16 @@ function requireTeacherOrAdmin(req, res, next) {
   next();
 }
 
+function requireHOD(req, res, next) {
+  if (!req.user || (req.user.role !== 'HOD' && req.user.role !== 'ADMIN')) {
+    return res.status(403).json({
+      success: false,
+      message: 'Forbidden: Head of Department (HOD) access privileges required.'
+    });
+  }
+  next();
+}
+
 function generateToken(payload, expiresIn = '7d') {
   return jwt.sign(payload, JWT_SECRET, { expiresIn });
 }
@@ -75,6 +85,7 @@ module.exports = {
   requireStudent,
   requireTeacher,
   requireTeacherOrAdmin,
+  requireHOD,
   generateToken,
   JWT_SECRET
 };
