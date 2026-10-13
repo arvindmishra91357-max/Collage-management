@@ -40,8 +40,10 @@ async function runTests() {
 
   await db.initDB();
 
-  const PORT = process.env.PORT || 3000;
-  const host = 'localhost';
+  const PORT = 3006;
+  const host = '127.0.0.1';
+  const { startServer } = require('./server');
+  const serverInstance = await startServer(PORT);
 
   // Helper for auth headers
   const adminToken = generateToken({ id: 1, username: 'Bettu&Bunny', role: 'ADMIN' });
@@ -229,13 +231,13 @@ async function runTests() {
   console.log('====================================================');
   console.log('🎉 ALL 11 MANUAL ROOM CHANGE & OVERRIDE TESTS PASSED!');
   console.log('====================================================');
+  if (serverInstance && serverInstance.close) {
+    serverInstance.close();
+  }
   process.exit(0);
 }
 
-const app = require('./server');
-setTimeout(() => {
-  runTests().catch(err => {
-    console.error('Test execution error:', err);
-    process.exit(1);
-  });
-}, 1000);
+runTests().catch(err => {
+  console.error('Test execution error:', err);
+  process.exit(1);
+});

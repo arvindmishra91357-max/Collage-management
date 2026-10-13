@@ -1,6 +1,6 @@
 const http = require('http');
 const { generateToken } = require('./middleware/auth');
-const PORT = 3000;
+const PORT = 3007;
 
 function request(options) {
   return new Promise((resolve, reject) => {
@@ -22,6 +22,8 @@ function request(options) {
 
 async function runTests() {
   console.log('🧪 Starting Sunday & Timetable Verification Tests...');
+  const { startServer } = require('./server');
+  const serverInstance = await startServer(PORT);
   const studentToken = generateToken({
     id: 1,
     ug_id: '26UG033181',
@@ -84,15 +86,14 @@ async function runTests() {
   }
 
   console.log('✅ ALL SUNDAY & TIMETABLE TESTS PASSED SUCCESSFULLY!');
+  if (serverInstance && serverInstance.close) {
+    serverInstance.close();
+  }
 }
 
-// Start server in-process if not already running, then run tests
-const app = require('./server');
-setTimeout(() => {
-  runTests().then(() => {
-    process.exit(0);
-  }).catch(err => {
-    console.error('❌ Test failed:', err);
-    process.exit(1);
-  });
-}, 1000);
+runTests().then(() => {
+  process.exit(0);
+}).catch(err => {
+  console.error('❌ Test failed:', err);
+  process.exit(1);
+});
