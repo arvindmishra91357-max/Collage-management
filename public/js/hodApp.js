@@ -94,143 +94,136 @@ const HodApp = {
     const dept = user.department || 'Computer Science & Engineering';
 
     root.innerHTML = `
-      <div class="app-layout hod-portal-layout">
+      <div class="admin-layout hod-layout">
         
         <!-- Mobile Navigation Drawer Backdrop -->
-        <div id="hod-mobile-backdrop" class="hod-mobile-backdrop" onclick="HodApp.toggleMobileSidebar(false)"></div>
+        <div id="hod-sidebar-backdrop" class="admin-sidebar-backdrop" onclick="HodApp.toggleMobileSidebar(false)"></div>
 
         <!-- Sidebar Navigation -->
-        <aside id="hod-sidebar" class="sidebar hod-sidebar">
-          <div class="sidebar-header" style="padding:18px 20px; border-bottom:1px solid var(--border-color); display:flex; align-items:center; justify-content:space-between;">
-            <div style="display:flex; align-items:center; gap:12px;">
-              <div class="auth-logo" style="width:38px; height:38px; margin:0; flex-shrink:0;">
-                <svg viewBox="0 0 512 512" width="22" height="22">
-                  <path d="M256 40 L440 110 C440 330 256 440 256 470 C256 440 72 330 72 110 Z" fill="none" stroke="#38bdf8" stroke-width="28" />
-                  <circle cx="256" cy="220" r="40" fill="#38bdf8" />
-                  <path d="M256 260 L256 360 M230 310 L282 310" stroke="#38bdf8" stroke-width="20" stroke-linecap="round" />
-                </svg>
-              </div>
-              <div>
-                <h3 style="font-size:15px; font-weight:800; margin:0; letter-spacing:-0.01em; color:var(--text-primary); line-height:1.2;">MGI PORTAL</h3>
-                <span class="badge" style="font-size:9.5px; padding:2px 6px; background:linear-gradient(135deg, #1d4ed8, #0ea5e9); color:#fff; font-weight:800; border-radius:4px; margin-top:2px; display:inline-block;">HOD PORTAL</span>
-              </div>
+        <aside id="hod-sidebar" class="admin-sidebar hod-sidebar">
+          <div class="sidebar-header">
+            <div class="brand-crest" style="background: linear-gradient(135deg, #1d4ed8 0%, #0ea5e9 100%);">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#ffffff" stroke-width="2.2">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+              </svg>
             </div>
-            <button class="icon-btn hod-mobile-close-btn" onclick="HodApp.toggleMobileSidebar(false)" style="display:none; width:32px; height:32px;">✕</button>
+            <div style="flex:1; min-width:0;">
+              <h2 style="font-size:14.5px; font-weight:800; letter-spacing:0.3px; margin:0; line-height:1.2;">HOD PORTAL</h2>
+              <span style="font-size:11px; color:#38bdf8; font-weight:700;">CSE • Cyber Security</span>
+            </div>
+            <button class="icon-btn hod-mobile-close-btn" onclick="HodApp.toggleMobileSidebar(false)" style="display:none; width:30px; height:30px; border-radius:8px; border:1px solid var(--border-color); background:transparent; color:var(--text-muted); cursor:pointer;">✕</button>
           </div>
 
           <!-- User Card in Sidebar -->
-          <div style="padding:16px 20px; border-bottom:1px solid var(--border-color); background:rgba(255,255,255,0.02);">
-            <div style="display:flex; align-items:center; gap:12px;">
-              <div style="width:42px; height:42px; border-radius:12px; background:linear-gradient(135deg, #2563eb, #38bdf8); display:flex; align-items:center; justify-content:center; font-size:18px; color:#fff; font-weight:800; flex-shrink:0; box-shadow:0 4px 12px rgba(37,99,235,0.3);">
+          <div style="padding:14px 16px; border-bottom:1px solid var(--border-color); background:rgba(255,255,255,0.02);">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <div style="width:38px; height:38px; border-radius:10px; background:linear-gradient(135deg, #2563eb, #38bdf8); display:flex; align-items:center; justify-content:center; font-size:17px; color:#fff; font-weight:800; flex-shrink:0; box-shadow:0 4px 12px rgba(37,99,235,0.25);">
                 🏛️
               </div>
-              <div style="overflow:hidden;">
-                <div style="font-size:13.5px; font-weight:800; color:var(--text-primary); white-space:nowrap; text-overflow:ellipsis; overflow:hidden;" title="${name}">${name}</div>
-                <div style="font-size:11px; color:#38bdf8; font-weight:600;">Head of Department</div>
-                <div style="font-size:10.5px; color:var(--text-muted); white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">${dept}</div>
+              <div style="min-width:0; overflow:hidden;">
+                <div style="font-size:12.5px; font-weight:800; color:var(--text-primary); white-space:nowrap; text-overflow:ellipsis; overflow:hidden;" title="${name}">${name}</div>
+                <div style="font-size:10.5px; color:#38bdf8; font-weight:700;">Head of Department</div>
+                <div style="font-size:10px; color:var(--text-muted); white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">${dept}</div>
               </div>
             </div>
           </div>
 
-          <!-- Sidebar Nav Links -->
-          <nav class="sidebar-nav" style="padding:14px 10px; overflow-y:auto; flex:1;">
-            
-            <div class="sidebar-nav-group-title">MAIN</div>
-            <a href="#hod-dashboard" class="sidebar-nav-link ${this.currentSection === 'dashboard' ? 'active' : ''}" onclick="HodApp.switchSection('dashboard', event)">
-              <span class="nav-icon">📊</span>
-              <span class="nav-text">Department Dashboard</span>
-            </a>
-            <a href="#hod-profile" class="sidebar-nav-link ${this.currentSection === 'profile' ? 'active' : ''}" onclick="HodApp.switchSection('profile', event)">
-              <span class="nav-icon">🏛️</span>
-              <span class="nav-text">Department Profile</span>
-            </a>
+          <!-- Sidebar Menu -->
+          <div class="sidebar-menu" style="flex:1; overflow-y:auto; padding:12px 10px;">
+            <div class="sidebar-group-title">MAIN</div>
+            <button class="sidebar-item ${this.currentSection === 'dashboard' ? 'active' : ''}" data-section="dashboard" onclick="HodApp.switchSection('dashboard', event)">
+              <span style="font-size:15px; width:22px; text-align:center; flex-shrink:0;">📊</span>
+              <span style="font-size:12.5px; font-weight:600;">Department Dashboard</span>
+            </button>
+            <button class="sidebar-item ${this.currentSection === 'profile' ? 'active' : ''}" data-section="profile" onclick="HodApp.switchSection('profile', event)">
+              <span style="font-size:15px; width:22px; text-align:center; flex-shrink:0;">🏛️</span>
+              <span style="font-size:12.5px; font-weight:600;">Department Profile</span>
+            </button>
 
-            <div class="sidebar-nav-group-title" style="margin-top:14px;">ACADEMIC ADMINISTRATION</div>
-            <a href="#hod-faculty" class="sidebar-nav-link ${this.currentSection === 'faculty' ? 'active' : ''}" onclick="HodApp.switchSection('faculty', event)">
-              <span class="nav-icon">👨‍🏫</span>
-              <span class="nav-text">Faculty Management</span>
-            </a>
-            <a href="#hod-students" class="sidebar-nav-link ${this.currentSection === 'students' ? 'active' : ''}" onclick="HodApp.switchSection('students', event)">
-              <span class="nav-icon">🎓</span>
-              <span class="nav-text">Student Management</span>
-            </a>
-            <a href="#hod-subjects" class="sidebar-nav-link ${this.currentSection === 'subjects' ? 'active' : ''}" onclick="HodApp.switchSection('subjects', event)">
-              <span class="nav-icon">📚</span>
-              <span class="nav-text">Subject Management</span>
-            </a>
-            <a href="#hod-timetable" class="sidebar-nav-link ${this.currentSection === 'timetable' ? 'active' : ''}" onclick="HodApp.switchSection('timetable', event)">
-              <span class="nav-icon">📅</span>
-              <span class="nav-text">Timetable Management</span>
-            </a>
-            <a href="#hod-internal-marks" class="sidebar-nav-link ${this.currentSection === 'internal-marks' ? 'active' : ''}" onclick="HodApp.switchSection('internal-marks', event)">
-              <span class="nav-icon">📝</span>
-              <span class="nav-text">Internal Marks</span>
-            </a>
-            <a href="#hod-assignments" class="sidebar-nav-link ${this.currentSection === 'assignments' ? 'active' : ''}" onclick="HodApp.switchSection('assignments', event)">
-              <span class="nav-icon">📑</span>
-              <span class="nav-text">Assignments</span>
-            </a>
-            <a href="#hod-exams" class="sidebar-nav-link ${this.currentSection === 'exams' ? 'active' : ''}" onclick="HodApp.switchSection('exams', event)">
-              <span class="nav-icon">🎯</span>
-              <span class="nav-text">Examination Management</span>
-            </a>
+            <div class="sidebar-group-title" style="margin-top:14px;">ACADEMIC ADMINISTRATION</div>
+            <button class="sidebar-item ${this.currentSection === 'faculty' ? 'active' : ''}" data-section="faculty" onclick="HodApp.switchSection('faculty', event)">
+              <span style="font-size:15px; width:22px; text-align:center; flex-shrink:0;">👨‍🏫</span>
+              <span style="font-size:12.5px; font-weight:600;">Faculty Management</span>
+            </button>
+            <button class="sidebar-item ${this.currentSection === 'students' ? 'active' : ''}" data-section="students" onclick="HodApp.switchSection('students', event)">
+              <span style="font-size:15px; width:22px; text-align:center; flex-shrink:0;">🎓</span>
+              <span style="font-size:12.5px; font-weight:600;">Student Management</span>
+            </button>
+            <button class="sidebar-item ${this.currentSection === 'subjects' ? 'active' : ''}" data-section="subjects" onclick="HodApp.switchSection('subjects', event)">
+              <span style="font-size:15px; width:22px; text-align:center; flex-shrink:0;">📚</span>
+              <span style="font-size:12.5px; font-weight:600;">Subject Management</span>
+            </button>
+            <button class="sidebar-item ${this.currentSection === 'timetable' ? 'active' : ''}" data-section="timetable" onclick="HodApp.switchSection('timetable', event)">
+              <span style="font-size:15px; width:22px; text-align:center; flex-shrink:0;">📅</span>
+              <span style="font-size:12.5px; font-weight:600;">Timetable Management</span>
+            </button>
+            <button class="sidebar-item ${this.currentSection === 'internal-marks' ? 'active' : ''}" data-section="internal-marks" onclick="HodApp.switchSection('internal-marks', event)">
+              <span style="font-size:15px; width:22px; text-align:center; flex-shrink:0;">📝</span>
+              <span style="font-size:12.5px; font-weight:600;">Internal Marks</span>
+            </button>
+            <button class="sidebar-item ${this.currentSection === 'assignments' ? 'active' : ''}" data-section="assignments" onclick="HodApp.switchSection('assignments', event)">
+              <span style="font-size:15px; width:22px; text-align:center; flex-shrink:0;">📑</span>
+              <span style="font-size:12.5px; font-weight:600;">Assignments</span>
+            </button>
+            <button class="sidebar-item ${this.currentSection === 'exams' ? 'active' : ''}" data-section="exams" onclick="HodApp.switchSection('exams', event)">
+              <span style="font-size:15px; width:22px; text-align:center; flex-shrink:0;">🎯</span>
+              <span style="font-size:12.5px; font-weight:600;">Examination Management</span>
+            </button>
 
-            <div class="sidebar-nav-group-title" style="margin-top:14px;">OPERATIONAL CONTROLS</div>
-            <a href="#hod-attendance" class="sidebar-nav-link ${this.currentSection === 'attendance' ? 'active' : ''}" onclick="HodApp.switchSection('attendance', event)">
-              <span class="nav-icon">⏱️</span>
-              <span class="nav-text">Attendance Management</span>
-            </a>
-            <a href="#hod-workload" class="sidebar-nav-link ${this.currentSection === 'workload' ? 'active' : ''}" onclick="HodApp.switchSection('workload', event)">
-              <span class="nav-icon">⚖️</span>
-              <span class="nav-text">Faculty Workload</span>
-            </a>
-            <a href="#hod-leaves" class="sidebar-nav-link ${this.currentSection === 'leaves' ? 'active' : ''}" onclick="HodApp.switchSection('leaves', event)">
-              <span class="nav-icon">✉️</span>
-              <span class="nav-text">Leave Approvals</span>
-            </a>
-            <a href="#hod-mentoring" class="sidebar-nav-link ${this.currentSection === 'mentoring' ? 'active' : ''}" onclick="HodApp.switchSection('mentoring', event)">
-              <span class="nav-icon">🤝</span>
-              <span class="nav-text">Student Mentoring</span>
-            </a>
+            <div class="sidebar-group-title" style="margin-top:14px;">OPERATIONAL CONTROLS</div>
+            <button class="sidebar-item ${this.currentSection === 'attendance' ? 'active' : ''}" data-section="attendance" onclick="HodApp.switchSection('attendance', event)">
+              <span style="font-size:15px; width:22px; text-align:center; flex-shrink:0;">⏱️</span>
+              <span style="font-size:12.5px; font-weight:600;">Attendance Management</span>
+            </button>
+            <button class="sidebar-item ${this.currentSection === 'workload' ? 'active' : ''}" data-section="workload" onclick="HodApp.switchSection('workload', event)">
+              <span style="font-size:15px; width:22px; text-align:center; flex-shrink:0;">⚖️</span>
+              <span style="font-size:12.5px; font-weight:600;">Faculty Workload</span>
+            </button>
+            <button class="sidebar-item ${this.currentSection === 'leaves' ? 'active' : ''}" data-section="leaves" onclick="HodApp.switchSection('leaves', event)">
+              <span style="font-size:15px; width:22px; text-align:center; flex-shrink:0;">✉️</span>
+              <span style="font-size:12.5px; font-weight:600;">Leave Approvals</span>
+            </button>
+            <button class="sidebar-item ${this.currentSection === 'mentoring' ? 'active' : ''}" data-section="mentoring" onclick="HodApp.switchSection('mentoring', event)">
+              <span style="font-size:15px; width:22px; text-align:center; flex-shrink:0;">🤝</span>
+              <span style="font-size:12.5px; font-weight:600;">Student Mentoring</span>
+            </button>
 
-            <div class="sidebar-nav-group-title" style="margin-top:14px;">DECISION & ANALYTICS</div>
-            <a href="#hod-reports" class="sidebar-nav-link ${this.currentSection === 'reports' ? 'active' : ''}" onclick="HodApp.switchSection('reports', event)">
-              <span class="nav-icon">📈</span>
-              <span class="nav-text">Department Reports</span>
-            </a>
-            <a href="#hod-approvals" class="sidebar-nav-link ${this.currentSection === 'approvals' ? 'active' : ''}" onclick="HodApp.switchSection('approvals', event)">
-              <span class="nav-icon">⚡</span>
-              <span class="nav-text" style="display:flex; justify-content:space-between; align-items:center; width:100%;">
-                <span>HOD Approvals</span>
-                <span id="hod-nav-pending-badge" class="badge" style="background:#ef4444; color:#fff; font-size:10px; padding:2px 6px; border-radius:10px; display:${this.pendingApprovalsCount > 0 ? 'inline-block' : 'none'};">
-                  ${this.pendingApprovalsCount}
-                </span>
+            <div class="sidebar-group-title" style="margin-top:14px;">DECISION & ANALYTICS</div>
+            <button class="sidebar-item ${this.currentSection === 'reports' ? 'active' : ''}" data-section="reports" onclick="HodApp.switchSection('reports', event)">
+              <span style="font-size:15px; width:22px; text-align:center; flex-shrink:0;">📈</span>
+              <span style="font-size:12.5px; font-weight:600;">Department Reports</span>
+            </button>
+            <button class="sidebar-item ${this.currentSection === 'approvals' ? 'active' : ''}" data-section="approvals" onclick="HodApp.switchSection('approvals', event)" style="position:relative; display:flex; align-items:center; width:100%;">
+              <span style="font-size:15px; width:22px; text-align:center; flex-shrink:0;">⚡</span>
+              <span style="flex:1; font-size:12.5px; font-weight:600; text-align:left;">HOD Approvals</span>
+              <span id="hod-nav-pending-badge" class="badge" style="background:#ef4444; color:#fff; font-size:10px; padding:2px 6px; border-radius:10px; margin-left:auto; display:${this.pendingApprovalsCount > 0 ? 'inline-block' : 'none'};">
+                ${this.pendingApprovalsCount}
               </span>
-            </a>
-          </nav>
+            </button>
+          </div>
 
           <!-- Sidebar Footer Controls -->
-          <div class="sidebar-footer" style="padding:14px 20px; border-top:1px solid var(--border-color); display:flex; align-items:center; justify-content:space-between;">
-            <button class="btn-sec" onclick="HodApp.toggleTheme()" style="padding:6px 12px; font-size:12px; display:inline-flex; align-items:center; gap:6px;">
+          <div class="sidebar-footer" style="padding:12px 16px; border-top:1px solid var(--border-color); display:flex; align-items:center; justify-content:space-between;">
+            <button class="btn-sec" onclick="HodApp.toggleTheme()" style="padding:6px 10px; font-size:11.5px; display:inline-flex; align-items:center; gap:5px; border-radius:8px;">
               <span>🌓</span> <span>Theme</span>
             </button>
-            <button class="btn-sec" onclick="HodApp.logout()" style="padding:6px 12px; font-size:12px; color:#ef4444; border-color:rgba(239,68,68,0.3); display:inline-flex; align-items:center; gap:6px;">
+            <button class="btn-sec" onclick="HodApp.logout()" style="padding:6px 10px; font-size:11.5px; color:#ef4444; border-color:rgba(239,68,68,0.3); display:inline-flex; align-items:center; gap:5px; border-radius:8px;">
               <span>🚪</span> <span>Logout</span>
             </button>
           </div>
         </aside>
 
-        <!-- Main Content Wrapper -->
-        <div class="main-content hod-main-content">
+        <!-- Main Content Area -->
+        <main class="admin-main hod-main">
           
           <!-- Sticky Topbar Header -->
-          <header class="top-bar hod-top-bar" style="position:sticky; top:0; z-index:90; backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); background:var(--bg-glass-strong); border-bottom:1px solid var(--border-color); padding:12px 24px; display:flex; align-items:center; justify-content:space-between; gap:16px;">
-            <div style="display:flex; align-items:center; gap:14px;">
-              <button class="icon-btn hod-hamburger-btn" onclick="HodApp.toggleMobileSidebar(true)" style="width:38px; height:38px; border-radius:10px; background:rgba(255,255,255,0.06); border:1px solid var(--border-color); display:inline-flex; align-items:center; justify-content:center; cursor:pointer;" title="Toggle Navigation Menu">
+          <header class="admin-topbar hod-top-bar">
+            <div style="display:flex; align-items:center; gap:12px;">
+              <button class="icon-btn" id="hod-sidebar-toggle" onclick="HodApp.toggleMobileSidebar(true)" style="display:none; width:36px; height:36px; border-radius:8px; border:1px solid var(--border-color); background:rgba(255,255,255,0.05); align-items:center; justify-content:center; cursor:pointer;" title="Open Menu">
                 <span style="font-size:18px;">☰</span>
               </button>
               <div>
-                <h1 id="hod-page-title" style="font-size:17px; font-weight:800; margin:0; color:var(--text-primary); line-height:1.2;">
+                <h1 id="hod-page-title" class="admin-page-title" style="margin:0; font-size:17px; font-weight:800; line-height:1.2;">
                   Department Dashboard
                 </h1>
                 <div style="font-size:11.5px; color:var(--text-muted); display:flex; align-items:center; gap:6px; margin-top:2px;">
@@ -247,36 +240,36 @@ const HodApp = {
                 <span>🏛️</span> <span class="hide-mobile">CSE Department Active</span>
               </span>
 
-              <button class="icon-btn" onclick="HodApp.switchSection('approvals')" style="position:relative; width:38px; height:38px; border-radius:10px; background:rgba(255,255,255,0.06); border:1px solid var(--border-color); cursor:pointer;" title="View Pending Approvals">
+              <button class="icon-btn" onclick="HodApp.switchSection('approvals')" style="position:relative; width:36px; height:36px; border-radius:10px; background:rgba(255,255,255,0.06); border:1px solid var(--border-color); cursor:pointer; display:inline-flex; align-items:center; justify-content:center;" title="View Pending Approvals">
                 <span>⚡</span>
                 <span id="hod-top-pending-badge" style="position:absolute; top:-4px; right:-4px; background:#ef4444; color:#fff; font-size:10px; font-weight:800; width:18px; height:18px; border-radius:50%; display:${this.pendingApprovalsCount > 0 ? 'flex' : 'none'}; align-items:center; justify-content:center; border:2px solid var(--bg-main);">
                   ${this.pendingApprovalsCount}
                 </span>
               </button>
 
-              <button class="btn-sec hide-mobile" onclick="HodApp.switchSection('profile')" style="padding:7px 12px; font-size:12px; display:inline-flex; align-items:center; gap:6px;">
+              <button class="btn-sec hide-mobile" onclick="HodApp.switchSection('profile')" style="padding:6px 12px; font-size:12px; display:inline-flex; align-items:center; gap:6px; border-radius:8px;">
                 <span>👤</span> <span>Profile</span>
               </button>
 
-              <button class="btn-sec" onclick="HodApp.logout()" style="padding:7px 12px; font-size:12px; color:#ef4444; border-color:rgba(239,68,68,0.3); display:inline-flex; align-items:center; gap:6px;">
+              <button class="btn-sec" onclick="HodApp.logout()" style="padding:6px 12px; font-size:12px; color:#ef4444; border-color:rgba(239,68,68,0.3); display:inline-flex; align-items:center; gap:6px; border-radius:8px;">
                 <span>🚪</span> <span class="hide-mobile">Logout</span>
               </button>
             </div>
           </header>
 
           <!-- Module Dynamic Mounting Area -->
-          <main id="hod-content-area" class="content-body" style="padding:24px; min-height:calc(100vh - 70px); max-width:1400px; margin:0 auto; width:100%;">
+          <div id="hod-content-area" class="admin-content" style="padding:24px 28px 40px; width:100%; box-sizing:border-box;">
             <div style="display:flex; justify-content:center; align-items:center; min-height:300px; flex-direction:column; gap:12px;">
               <div style="width:36px; height:36px; border:3px solid rgba(255,255,255,0.1); border-top-color:#38bdf8; border-radius:50%; animation:spin 0.8s linear infinite;"></div>
               <p style="color:var(--text-muted); font-size:13px; font-weight:600;">Loading Department Dashboard...</p>
             </div>
-          </main>
-        </div>
+          </div>
+        </main>
 
       </div>
 
       <style>
-        .sidebar-nav-group-title {
+        .hod-sidebar .sidebar-group-title {
           font-size: 10.5px;
           font-weight: 800;
           color: var(--text-muted);
@@ -284,74 +277,23 @@ const HodApp = {
           text-transform: uppercase;
           padding: 8px 12px 4px;
         }
-        .sidebar-nav-link {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          padding: 9px 12px;
-          color: var(--text-secondary);
-          text-decoration: none;
-          font-size: 13px;
-          font-weight: 600;
-          border-radius: var(--radius-sm);
-          transition: all 0.2s ease;
-          margin-bottom: 2px;
-        }
-        .sidebar-nav-link:hover {
-          background: rgba(255, 255, 255, 0.05);
-          color: var(--text-primary);
-        }
-        .sidebar-nav-link.active {
-          background: linear-gradient(135deg, rgba(37, 99, 235, 0.2), rgba(6, 182, 212, 0.15));
-          color: #38bdf8;
-          border: 1px solid rgba(56, 189, 248, 0.3);
-          font-weight: 700;
-        }
-        .sidebar-nav-link .nav-icon {
-          font-size: 16px;
-          width: 22px;
-          text-align: center;
-          flex-shrink: 0;
-        }
-        .hod-mobile-backdrop {
-          display: none;
-          position: fixed;
-          inset: 0;
-          background: rgba(0, 0, 0, 0.7);
-          backdrop-filter: blur(4px);
-          z-index: 998;
-          transition: opacity 0.3s ease;
-        }
-        @media (max-width: 1024px) {
-          .hod-sidebar {
-            position: fixed;
-            top: 0;
-            bottom: 0;
-            left: 0;
-            width: 280px;
-            z-index: 999;
+        @media (max-width: 900px) {
+          #hod-sidebar {
             transform: translateX(-100%);
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: 4px 0 24px rgba(0,0,0,0.5);
-            background: var(--bg-glass-strong);
+            box-shadow: 0 0 40px rgba(0, 0, 0, 0.8);
           }
-          .hod-sidebar.open {
+          #hod-sidebar.open {
             transform: translateX(0);
           }
-          .hod-mobile-backdrop.open {
-            display: block;
+          #hod-sidebar-backdrop.open,
+          #hod-sidebar-backdrop.show {
+            display: block !important;
           }
           .hod-mobile-close-btn {
             display: inline-flex !important;
           }
-          .hod-main-content {
-            margin-left: 0 !important;
-            width: 100% !important;
-          }
-        }
-        @media (min-width: 1025px) {
-          .hod-hamburger-btn {
-            display: none !important;
+          #hod-sidebar-toggle {
+            display: flex !important;
           }
         }
         @media (max-width: 640px) {
@@ -362,7 +304,7 @@ const HodApp = {
             padding: 10px 14px !important;
           }
           #hod-content-area {
-            padding: 14px !important;
+            padding: 14px 12px 30px !important;
           }
         }
       </style>
@@ -371,14 +313,20 @@ const HodApp = {
 
   toggleMobileSidebar(open) {
     const sidebar = document.getElementById('hod-sidebar');
-    const backdrop = document.getElementById('hod-mobile-backdrop');
-    if (!sidebar || !backdrop) return;
+    const backdrop = document.getElementById('hod-sidebar-backdrop');
+    if (!sidebar) return;
     if (open) {
       sidebar.classList.add('open');
-      backdrop.classList.add('open');
+      if (backdrop) {
+        backdrop.classList.add('open');
+        backdrop.classList.add('show');
+      }
     } else {
       sidebar.classList.remove('open');
-      backdrop.classList.remove('open');
+      if (backdrop) {
+        backdrop.classList.remove('open');
+        backdrop.classList.remove('show');
+      }
     }
   },
 
@@ -397,12 +345,12 @@ const HodApp = {
     this.currentSection = section;
 
     // Update active state in sidebar
-    document.querySelectorAll('.sidebar-nav-link').forEach(link => {
-      link.classList.remove('active');
+    document.querySelectorAll('#hod-sidebar .sidebar-item').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.section === section);
+    });
+    document.querySelectorAll('#hod-sidebar .sidebar-nav-link').forEach(link => {
       const href = link.getAttribute('href') || '';
-      if (href.includes(section)) {
-        link.classList.add('active');
-      }
+      link.classList.toggle('active', href.includes(section));
     });
 
     if (updateHistory) {

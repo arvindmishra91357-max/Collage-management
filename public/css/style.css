@@ -1770,10 +1770,12 @@ input:-webkit-autofill:active {
 /* ==========================================================================
    TEACHER & FACULTY PORTAL STYLES (3CYBER7)
    ========================================================================== */
-.teacher-layout {
+.teacher-layout,
+.hod-layout {
   display: flex;
   min-height: 100vh;
   background: var(--bg-main);
+  width: 100%;
 }
 
 .card {
