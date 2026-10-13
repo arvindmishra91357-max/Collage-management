@@ -49,11 +49,20 @@ const HodApp = {
     this.currentUser = user || API.getUser();
     this.sectionHistory = ['dashboard'];
 
-    // Instantly sync latest profile from backend
+    // Instantly sync latest profile from backend without letting dept.name overwrite user.name
     try {
       const profRes = await API.getHodProfile();
       if (profRes && profRes.success && profRes.profile) {
-        this.currentUser = { ...this.currentUser, ...profRes.profile };
+        const p = profRes.profile;
+        const headName = p.head_name || p.headOfDept || (this.currentUser?.name && !this.currentUser.name.includes('Engineering') ? this.currentUser.name : 'Prof. (Dr.) A. K. Sharma');
+        const deptName = p.department || p.dept_name || (p.name && p.name.includes('Engineering') ? p.name : 'Computer Science & Engineering');
+        this.currentUser = {
+          ...this.currentUser,
+          ...p,
+          name: headName,
+          head_name: headName,
+          department: deptName
+        };
         API.setUser(this.currentUser);
       }
     } catch (e) {}
@@ -82,7 +91,7 @@ const HodApp = {
 
     this.renderLayout();
     this.bindEvents();
-    await this.loadSectionData(initialSection);
+    await this.switchSection(initialSection, null, false);
     this.initRealtimeSync();
   },
 
@@ -90,7 +99,7 @@ const HodApp = {
   renderLayout() {
     const root = document.getElementById('app-root');
     const user = this.currentUser || {};
-    const name = user.name || 'Prof. (Dr.) A. K. Sharma';
+    const name = user.head_name || (user.name && !user.name.includes('Engineering') ? user.name : 'Prof. (Dr.) A. K. Sharma');
     const dept = user.department || 'Computer Science & Engineering';
 
     root.innerHTML = `
@@ -114,16 +123,16 @@ const HodApp = {
             <button class="icon-btn hod-mobile-close-btn" onclick="HodApp.toggleMobileSidebar(false)" style="display:none; width:30px; height:30px; border-radius:8px; border:1px solid var(--border-color); background:transparent; color:var(--text-muted); cursor:pointer;">✕</button>
           </div>
 
-          <!-- User Card in Sidebar -->
-          <div style="padding:14px 16px; border-bottom:1px solid var(--border-color); background:rgba(255,255,255,0.02);">
-            <div style="display:flex; align-items:center; gap:10px;">
-              <div style="width:38px; height:38px; border-radius:10px; background:linear-gradient(135deg, #2563eb, #38bdf8); display:flex; align-items:center; justify-content:center; font-size:17px; color:#fff; font-weight:800; flex-shrink:0; box-shadow:0 4px 12px rgba(37,99,235,0.25);">
-                🏛️
-              </div>
-              <div style="min-width:0; overflow:hidden;">
-                <div style="font-size:12.5px; font-weight:800; color:var(--text-primary); white-space:nowrap; text-overflow:ellipsis; overflow:hidden;" title="${name}">${name}</div>
-                <div style="font-size:10.5px; color:#38bdf8; font-weight:700;">Head of Department</div>
-                <div style="font-size:10px; color:var(--text-muted); white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">${dept}</div>
+          <!-- User Profile Chip in Sidebar -->
+          <div style="padding:12px 14px; border-bottom:1px solid var(--border-color); background:rgba(255,255,255,0.02); display:flex; align-items:center; gap:10px;">
+            <div style="width:36px; height:36px; border-radius:10px; background:linear-gradient(135deg, #1d4ed8, #0ea5e9); display:flex; align-items:center; justify-content:center; font-size:16px; color:#fff; flex-shrink:0; box-shadow:0 4px 12px rgba(37,99,235,0.25);">
+              👨‍💼
+            </div>
+            <div style="min-width:0; overflow:hidden; flex:1;">
+              <div style="font-size:12.5px; font-weight:800; color:var(--text-primary); white-space:nowrap; text-overflow:ellipsis; overflow:hidden;" title="${name}">${name}</div>
+              <div style="font-size:10.5px; color:#38bdf8; font-weight:700; display:flex; align-items:center; gap:4px;">
+                <span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:#10b981;"></span>
+                <span>Head of Department</span>
               </div>
             </div>
           </div>
@@ -250,10 +259,6 @@ const HodApp = {
               <button class="btn-sec hide-mobile" onclick="HodApp.switchSection('profile')" style="padding:6px 12px; font-size:12px; display:inline-flex; align-items:center; gap:6px; border-radius:8px;">
                 <span>👤</span> <span>Profile</span>
               </button>
-
-              <button class="btn-sec" onclick="HodApp.logout()" style="padding:6px 12px; font-size:12px; color:#ef4444; border-color:rgba(239,68,68,0.3); display:inline-flex; align-items:center; gap:6px; border-radius:8px;">
-                <span>🚪</span> <span class="hide-mobile">Logout</span>
-              </button>
             </div>
           </header>
 
@@ -360,29 +365,75 @@ const HodApp = {
       } catch (e) {}
     }
 
-    // Update Topbar Title
+    // Update Topbar Title & Breadcrumb Subtitle
     const titleEl = document.getElementById('hod-page-title');
     const breadcrumbEl = document.getElementById('hod-page-breadcrumb');
     const titles = {
-      'dashboard': 'Department Dashboard',
-      'profile': 'Department Profile & Governance',
-      'faculty': 'Faculty Management & Responsibilities',
-      'students': 'Department Students & Records',
-      'subjects': 'Subject & Curriculum Management',
-      'timetable': 'Timetable & Class Schedules',
-      'attendance': 'Attendance Monitoring & Audit',
-      'internal-marks': 'Internal Assessment & Marks Verification',
-      'assignments': 'Department Assignments & Evaluations',
-      'exams': 'Examination Management & Readiness',
-      'workload': 'Faculty Workload Matrix',
-      'leaves': 'Faculty & Student Leave Approvals',
-      'mentoring': 'Student Mentoring & Intervention',
-      'reports': 'Department Reports & Compliance Exports',
-      'approvals': 'Central HOD Approvals Dashboard'
+      'dashboard': {
+        title: 'Department Dashboard',
+        subtitle: 'Overview • Division 3CYBER7 • Academic Year 2026-27'
+      },
+      'profile': {
+        title: 'Department Profile & Governance',
+        subtitle: 'CSE Dept Information, Contact & Administration'
+      },
+      'faculty': {
+        title: 'Faculty Management',
+        subtitle: 'Teaching Appointments, Workload & Department Staff'
+      },
+      'students': {
+        title: 'Student Management & Roster',
+        subtitle: 'Division 3CYBER7 Enrolled Students & Academic Records'
+      },
+      'subjects': {
+        title: 'Subject & Curriculum Management',
+        subtitle: '3rd Semester Course Allocations & Syllabus Progress'
+      },
+      'timetable': {
+        title: 'Timetable & Class Schedules',
+        subtitle: 'Weekly Schedule Matrix, Classrooms & Lab Sessions'
+      },
+      'attendance': {
+        title: 'Attendance Monitoring & Audit',
+        subtitle: 'Daily QR & Manual Attendance • Defaulter Tracking'
+      },
+      'internal-marks': {
+        title: 'Internal Assessment & Marks Verification',
+        subtitle: 'Faculty Submissions, Score Moderation & Status'
+      },
+      'assignments': {
+        title: 'Department Assignments',
+        subtitle: 'Course Work, Submissions & Evaluation Tracking'
+      },
+      'exams': {
+        title: 'Examination Management',
+        subtitle: 'Schedules, Seating Allocations & Readiness'
+      },
+      'workload': {
+        title: 'Faculty Workload Matrix',
+        subtitle: 'Weekly Teaching Slots, Load Distribution & Norms'
+      },
+      'leaves': {
+        title: 'Leave Approvals Queue',
+        subtitle: 'Faculty Duty/Casual Leaves & Student Medical Applications'
+      },
+      'mentoring': {
+        title: 'Student Mentoring & Interventions',
+        subtitle: 'Academic Counseling Sessions & Progress Notes'
+      },
+      'reports': {
+        title: 'Department Reports & Compliance',
+        subtitle: 'Institutional CSV Exports & Audit Summaries'
+      },
+      'approvals': {
+        title: 'Central HOD Approvals Dashboard',
+        subtitle: 'Unified Queue for Marks, Leaves, Timetable & Attendance'
+      }
     };
 
-    if (titleEl) titleEl.textContent = titles[section] || 'Department Management';
-    if (breadcrumbEl) breadcrumbEl.textContent = titles[section] || 'Module Overview';
+    const meta = titles[section] || { title: 'Department Management', subtitle: 'Overview' };
+    if (titleEl) titleEl.textContent = meta.title;
+    if (breadcrumbEl) breadcrumbEl.textContent = meta.subtitle;
 
     await this.loadSectionData(section);
   },
@@ -564,7 +615,7 @@ const HodApp = {
               <span class="badge" style="background:#10b981; color:#fff; font-size:10px; padding:3px 8px; border-radius:4px; font-weight:800;">ACTIVE TERM 2026-27</span>
               <span style="font-size:12px; color:var(--text-muted);">Division 3CYBER7 • B.Tech Cyber Security</span>
             </div>
-            <h2 style="font-size:20px; font-weight:900; color:var(--text-primary); margin:0;">Welcome, ${this.currentUser?.name || 'Head of Department'}</h2>
+            <h2 style="font-size:20px; font-weight:900; color:var(--text-primary); margin:0;">Welcome, ${this.currentUser?.head_name || (this.currentUser?.name && !this.currentUser.name.includes('Engineering') ? this.currentUser.name : 'Head of Department')}</h2>
             <p style="font-size:12.5px; color:var(--text-secondary); margin:4px 0 0;">Department Operations, Faculty Workload & Governance Hub</p>
           </div>
           
@@ -814,9 +865,9 @@ const HodApp = {
         <div class="card" style="padding:24px;">
           <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color); padding-bottom:16px; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
             <div>
-              <span class="badge" style="background:#2563eb; color:#fff; font-size:10px; padding:3px 8px; border-radius:4px;">CODE: ${p.code || 'CSE'}</span>
-              <h2 style="font-size:20px; font-weight:900; color:var(--text-primary); margin:6px 0 2px;">${p.name || 'Computer Science & Engineering'}</h2>
-              <p style="font-size:12px; color:var(--text-muted);">Established Year: ${p.established_year || 2012} • Mishra Group Institute</p>
+              <span class="badge" style="background:#2563eb; color:#fff; font-size:10px; padding:3px 8px; border-radius:4px; font-weight:700;">DEPT CODE: ${p.code || 'CSE'}</span>
+              <div style="font-size:15px; font-weight:800; color:var(--text-primary); margin-top:4px;">Academic Governance & Department Setup</div>
+              <p style="font-size:12px; color:var(--text-muted); margin:2px 0 0;">Established Year: ${p.established_year || 2012} • Mishra Group Institute</p>
             </div>
             <div style="display:flex; gap:10px;">
               <span class="badge" style="background:rgba(56,189,248,0.15); color:#38bdf8; font-size:12px; padding:6px 12px; border-radius:8px;">
@@ -919,6 +970,8 @@ const HodApp = {
         description
       });
       if (res && res.success) {
+        this.currentUser = { ...this.currentUser, name: head_name, head_name: head_name };
+        API.setUser(this.currentUser);
         this.showToast('Department profile updated successfully!', 'success');
       } else {
         this.showToast(res?.message || 'Failed to update profile.', 'error');
@@ -939,11 +992,12 @@ const HodApp = {
     content.innerHTML = `
       <div style="display:flex; flex-direction:column; gap:20px;">
         
-        <!-- Header & Action Row -->
+        <!-- Action Toolbar -->
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
-          <div>
-            <h2 style="font-size:18px; font-weight:900; margin:0; color:var(--text-primary);">Department Faculty Members</h2>
-            <p style="font-size:12px; color:var(--text-muted); margin:2px 0 0;">Manage teaching appointments, workload assignments & academic responsibilities</p>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="badge" style="background:rgba(56,189,248,0.15); color:#38bdf8; font-size:12px; padding:6px 12px; border-radius:8px; font-weight:700;">
+              👨‍🏫 ${faculty.length} Active Faculty Members
+            </span>
           </div>
           <button class="btn-primary" onclick="HodApp.openAddFacultyModal()" style="padding:8px 16px; font-size:12px; display:inline-flex; align-items:center; gap:6px;">
             <span>➕</span> <span>Add Faculty Member</span>
@@ -1293,15 +1347,16 @@ const HodApp = {
     content.innerHTML = `
       <div style="display:flex; flex-direction:column; gap:20px;">
         
-        <!-- Top bar with export -->
+        <!-- Action Toolbar -->
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
-          <div>
-            <h2 style="font-size:18px; font-weight:900; margin:0; color:var(--text-primary);">Department Students Roster</h2>
-            <p style="font-size:12px; color:var(--text-muted); margin:2px 0 0;">Division 3CYBER7 • Total Enrolled: ${p.total}</p>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="badge" style="background:rgba(56,189,248,0.15); color:#38bdf8; font-size:12px; padding:6px 12px; border-radius:8px; font-weight:700;">
+              🎓 ${p.total} Enrolled Students (Division 3CYBER7)
+            </span>
           </div>
           <div style="display:flex; gap:10px;">
-            <a href="/api/hod/students/export?token=${API.getToken()}" download="students_roster.csv" class="btn-sec" style="padding:8px 14px; font-size:12px; text-decoration:none; display:inline-flex; align-items:center; gap:6px;">
-              <span>📥</span> <span>Export CSV</span>
+            <a href="/api/hod/students/export?token=${API.getToken()}" download="students_roster.csv" class="btn-sec" style="padding:8px 14px; font-size:12px; text-decoration:none; display:inline-flex; align-items:center; gap:6px; border-radius:8px;">
+              <span>📥</span> <span>Export CSV Roster</span>
             </a>
           </div>
         </div>
@@ -1455,9 +1510,10 @@ const HodApp = {
       <div style="display:flex; flex-direction:column; gap:20px;">
         
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
-          <div>
-            <h2 style="font-size:18px; font-weight:900; margin:0; color:var(--text-primary);">Department Curriculum & Subjects</h2>
-            <p style="font-size:12px; color:var(--text-muted); margin:2px 0 0;">Semester 3rd Course Matrix • Credit allocations & syllabus completion status</p>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="badge" style="background:rgba(168,85,247,0.15); color:#c084fc; font-size:12px; padding:6px 12px; border-radius:8px; font-weight:700;">
+              📚 ${subjects.length} Semester Courses Offered
+            </span>
           </div>
           <button class="btn-primary" onclick="HodApp.openAddSubjectModal()" style="padding:8px 16px; font-size:12px; display:inline-flex; align-items:center; gap:6px;">
             <span>➕</span> <span>Add Subject</span>
@@ -1647,22 +1703,17 @@ const HodApp = {
       <div style="display:flex; flex-direction:column; gap:20px;">
         
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
-          <div>
-            <h2 style="font-size:18px; font-weight:900; margin:0; color:var(--text-primary);">Department Timetable Schedule</h2>
-            <p style="font-size:12px; color:var(--text-muted); margin:2px 0 0;">Division 3CYBER7 (2026-27) • Classroom & Lab Allocations</p>
+          <!-- Day Selector Tabs -->
+          <div style="display:flex; gap:6px; overflow-x:auto; background:rgba(255,255,255,0.03); padding:4px; border-radius:10px; border:1px solid var(--border-color);">
+            ${days.map(d => `
+              <button class="pill-tab ${d === selectedDay ? 'active' : ''}" onclick="HodApp.renderTimetable('${d}')">
+                ${d}
+              </button>
+            `).join('')}
           </div>
           <button class="btn-primary" onclick="HodApp.openAddTimetableModal('${selectedDay}')" style="padding:8px 16px; font-size:12px; display:inline-flex; align-items:center; gap:6px;">
             <span>➕</span> <span>Add Class Slot</span>
           </button>
-        </div>
-
-        <!-- Day Selector Tabs -->
-        <div style="display:flex; gap:8px; overflow-x:auto; padding-bottom:4px;">
-          ${days.map(d => `
-            <button class="btn-sec ${d === selectedDay ? 'btn-primary' : ''}" onclick="HodApp.renderTimetable('${d}')" style="padding:7px 16px; font-size:12.5px; font-weight:700; white-space:nowrap;">
-              ${d}
-            </button>
-          `).join('')}
         </div>
 
         <!-- Slots Table -->
@@ -1827,12 +1878,14 @@ const HodApp = {
       <div style="display:flex; flex-direction:column; gap:20px;">
         
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
-          <div>
-            <h2 style="font-size:18px; font-weight:900; margin:0; color:var(--text-primary);">Department Attendance Management</h2>
-            <p style="font-size:12px; color:var(--text-muted); margin:2px 0 0;">Dual QR & Manual Audit • Defaulter tracking (< 75% threshold)</p>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="badge" style="background:rgba(16,185,129,0.15); color:#10b981; font-size:12px; padding:6px 12px; border-radius:8px; font-weight:700;">
+              ⏱️ Institutional Audit Threshold: 75%
+            </span>
           </div>
           <div style="display:flex; align-items:center; gap:8px;">
-            <input type="date" id="att-date-picker" class="form-control" value="${dateInput}" max="${today}" onchange="HodApp.renderAttendance()" style="height:36px; font-size:12px;" />
+            <label style="font-size:12px; color:var(--text-muted); font-weight:600;">Date:</label>
+            <input type="date" id="att-date-picker" class="form-control" value="${dateInput}" max="${today}" onchange="HodApp.renderAttendance()" style="height:36px; font-size:12px; width:auto;" />
           </div>
         </div>
 
@@ -1919,10 +1972,9 @@ const HodApp = {
       <div style="display:flex; flex-direction:column; gap:20px;">
         
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
-          <div>
-            <h2 style="font-size:18px; font-weight:900; margin:0; color:var(--text-primary);">Internal Marks & Assessment Moderation</h2>
-            <p style="font-size:12px; color:var(--text-muted); margin:2px 0 0;">Review faculty-submitted marks • Approval & return workflows</p>
-          </div>
+          <span class="badge" style="background:rgba(56,189,248,0.15); color:#38bdf8; font-size:12px; padding:6px 12px; border-radius:8px; font-weight:700;">
+            📝 ${summary.length} Subjects Submitted for Internal Moderation
+          </span>
         </div>
 
         <!-- Subject Summary Cards -->
@@ -1989,9 +2041,10 @@ const HodApp = {
     content.innerHTML = `
       <div style="display:flex; flex-direction:column; gap:20px;">
         
-        <div>
-          <h2 style="font-size:18px; font-weight:900; margin:0; color:var(--text-primary);">Department Assignments & Evaluations</h2>
-          <p style="font-size:12px; color:var(--text-muted); margin:2px 0 0;">Monitor faculty-assigned course work, submissions, and grading progress</p>
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+          <span class="badge" style="background:rgba(14,165,233,0.15); color:#38bdf8; font-size:12px; padding:6px 12px; border-radius:8px; font-weight:700;">
+            📑 ${assignments.length} Course Assignments Tracked
+          </span>
         </div>
 
         <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:16px;">
@@ -2042,10 +2095,9 @@ const HodApp = {
       <div style="display:flex; flex-direction:column; gap:20px;">
         
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
-          <div>
-            <h2 style="font-size:18px; font-weight:900; margin:0; color:var(--text-primary);">Examination Management & Readiness</h2>
-            <p style="font-size:12px; color:var(--text-muted); margin:2px 0 0;">Exam timetables, question paper readiness & seating arrangements</p>
-          </div>
+          <span class="badge" style="background:rgba(16,185,129,0.15); color:#10b981; font-size:12px; padding:6px 12px; border-radius:8px; font-weight:700;">
+            🎯 ${exams.length} Scheduled Department Examinations
+          </span>
           <button class="btn-primary" onclick="HodApp.openAddExamModal()" style="padding:8px 16px; font-size:12px; display:inline-flex; align-items:center; gap:6px;">
             <span>➕</span> <span>Schedule Examination</span>
           </button>
@@ -2203,9 +2255,10 @@ const HodApp = {
     content.innerHTML = `
       <div style="display:flex; flex-direction:column; gap:20px;">
         
-        <div>
-          <h2 style="font-size:18px; font-weight:900; margin:0; color:var(--text-primary);">Faculty Teaching Workload Matrix</h2>
-          <p style="font-size:12px; color:var(--text-muted); margin:2px 0 0;">Institutional Norm: 16-20 Hours/Week • Real-time load balance audit</p>
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+          <span class="badge" style="background:rgba(245,158,11,0.15); color:#f59e0b; font-size:12px; padding:6px 12px; border-radius:8px; font-weight:700;">
+            ⚖️ Institutional Workload Norm: 16–20 Hours / Week (${workload.length} Faculty Members)
+          </span>
         </div>
 
         <div class="card" style="padding:0; overflow:hidden;">
@@ -2262,9 +2315,10 @@ const HodApp = {
     content.innerHTML = `
       <div style="display:flex; flex-direction:column; gap:20px;">
         
-        <div>
-          <h2 style="font-size:18px; font-weight:900; margin:0; color:var(--text-primary);">Department Leave Approval Hub</h2>
-          <p style="font-size:12px; color:var(--text-muted); margin:2px 0 0;">Faculty & student duty/medical leave authorizations</p>
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+          <span class="badge" style="background:rgba(239,68,68,0.15); color:#f87171; font-size:12px; padding:6px 12px; border-radius:8px; font-weight:700;">
+            ✉️ ${leaves.filter(l => l.status === 'PENDING').length} Pending Leave Applications (${leaves.length} Total)
+          </span>
         </div>
 
         <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:16px;">
@@ -2344,10 +2398,9 @@ const HodApp = {
       <div style="display:flex; flex-direction:column; gap:20px;">
         
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
-          <div>
-            <h2 style="font-size:18px; font-weight:900; margin:0; color:var(--text-primary);">Student Mentoring & Intervention Records</h2>
-            <p style="font-size:12px; color:var(--text-muted); margin:2px 0 0;">Track faculty mentoring sessions, student progress & confidential support notes</p>
-          </div>
+          <span class="badge" style="background:rgba(56,189,248,0.15); color:#38bdf8; font-size:12px; padding:6px 12px; border-radius:8px; font-weight:700;">
+            🤝 ${records.length} Counseling & Mentoring Sessions Logged
+          </span>
           <button class="btn-primary" onclick="HodApp.openAddMentoringModal()" style="padding:8px 16px; font-size:12px; display:inline-flex; align-items:center; gap:6px;">
             <span>➕</span> <span>Log Mentoring Session</span>
           </button>
@@ -2479,26 +2532,21 @@ const HodApp = {
       <div style="display:flex; flex-direction:column; gap:20px;">
         
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
-          <div>
-            <h2 style="font-size:18px; font-weight:900; margin:0; color:var(--text-primary);">Department Compliance & Academic Reports</h2>
-            <p style="font-size:12px; color:var(--text-muted); margin:2px 0 0;">Statistical reporting across students, faculty workload & evaluations</p>
+          <!-- Report Type Toggle Buttons -->
+          <div style="display:flex; gap:6px; overflow-x:auto; background:rgba(255,255,255,0.03); padding:4px; border-radius:10px; border:1px solid var(--border-color);">
+            <button class="pill-tab ${reportType === 'attendance' ? 'active' : ''}" onclick="HodApp.renderReports('attendance')">
+              ⏱️ Attendance Summary
+            </button>
+            <button class="pill-tab ${reportType === 'workload' ? 'active' : ''}" onclick="HodApp.renderReports('workload')">
+              ⚖️ Faculty Workload
+            </button>
+            <button class="pill-tab ${reportType === 'performance' ? 'active' : ''}" onclick="HodApp.renderReports('performance')">
+              📊 Academic Performance
+            </button>
           </div>
           <a href="/api/hod/reports/export?report_type=${encodeURIComponent(reportType)}&token=${API.getToken()}" download="${reportType}_report.csv" class="btn-primary" style="padding:8px 16px; font-size:12px; text-decoration:none; display:inline-flex; align-items:center; gap:6px;">
             <span>📥</span> <span>Download CSV Export</span>
           </a>
-        </div>
-
-        <!-- Report Type Toggle Buttons -->
-        <div style="display:flex; gap:8px; overflow-x:auto;">
-          <button class="btn-sec ${reportType === 'attendance' ? 'btn-primary' : ''}" onclick="HodApp.renderReports('attendance')" style="padding:7px 16px; font-size:12px;">
-            ⏱️ Attendance Summary
-          </button>
-          <button class="btn-sec ${reportType === 'workload' ? 'btn-primary' : ''}" onclick="HodApp.renderReports('workload')" style="padding:7px 16px; font-size:12px;">
-            ⚖️ Faculty Workload
-          </button>
-          <button class="btn-sec ${reportType === 'performance' ? 'btn-primary' : ''}" onclick="HodApp.renderReports('performance')" style="padding:7px 16px; font-size:12px;">
-            📊 Academic Performance
-          </button>
         </div>
 
         <!-- Report Table -->
@@ -2600,21 +2648,21 @@ const HodApp = {
     content.innerHTML = `
       <div style="display:flex; flex-direction:column; gap:20px;">
         
-        <div>
-          <h2 style="font-size:18px; font-weight:900; margin:0; color:var(--text-primary);">Central HOD Approvals Dashboard</h2>
-          <p style="font-size:12px; color:var(--text-muted); margin:2px 0 0;">Unified authorization queue for marks, leaves, attendance corrections & timetables</p>
-        </div>
-
-        <div style="display:flex; gap:8px;">
-          <button class="btn-sec ${filterStatus === 'PENDING' ? 'btn-primary' : ''}" onclick="HodApp.renderApprovals('PENDING')" style="padding:7px 16px; font-size:12px;">
-            ⏳ Pending Items (${this.pendingApprovalsCount})
-          </button>
-          <button class="btn-sec ${filterStatus === 'APPROVED' ? 'btn-primary' : ''}" onclick="HodApp.renderApprovals('APPROVED')" style="padding:7px 16px; font-size:12px;">
-            ✓ Approved History
-          </button>
-          <button class="btn-sec ${filterStatus === 'ALL' ? 'btn-primary' : ''}" onclick="HodApp.renderApprovals('ALL')" style="padding:7px 16px; font-size:12px;">
-            All Requests
-          </button>
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+          <div style="display:flex; gap:6px; overflow-x:auto; background:rgba(255,255,255,0.03); padding:4px; border-radius:10px; border:1px solid var(--border-color);">
+            <button class="pill-tab ${filterStatus === 'PENDING' ? 'active' : ''}" onclick="HodApp.renderApprovals('PENDING')">
+              ⏳ Pending Items (${this.pendingApprovalsCount})
+            </button>
+            <button class="pill-tab ${filterStatus === 'APPROVED' ? 'active' : ''}" onclick="HodApp.renderApprovals('APPROVED')">
+              ✓ Approved History
+            </button>
+            <button class="pill-tab ${filterStatus === 'ALL' ? 'active' : ''}" onclick="HodApp.renderApprovals('ALL')">
+              All Requests
+            </button>
+          </div>
+          <div style="font-size:12px; color:var(--text-muted); font-weight:600;">
+            Queue: <span style="color:#38bdf8;">${approvals.length} request${approvals.length === 1 ? '' : 's'}</span>
+          </div>
         </div>
 
         <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:16px;">
