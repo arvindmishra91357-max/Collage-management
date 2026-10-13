@@ -123,20 +123,6 @@ const HodApp = {
             <button class="icon-btn hod-mobile-close-btn" onclick="HodApp.toggleMobileSidebar(false)" style="display:none; width:30px; height:30px; border-radius:8px; border:1px solid var(--border-color); background:transparent; color:var(--text-muted); cursor:pointer;">✕</button>
           </div>
 
-          <!-- User Profile Chip in Sidebar -->
-          <div style="padding:12px 14px; border-bottom:1px solid var(--border-color); background:rgba(255,255,255,0.02); display:flex; align-items:center; gap:10px;">
-            <div style="width:36px; height:36px; border-radius:10px; background:linear-gradient(135deg, #1d4ed8, #0ea5e9); display:flex; align-items:center; justify-content:center; font-size:16px; color:#fff; flex-shrink:0; box-shadow:0 4px 12px rgba(37,99,235,0.25);">
-              👨‍💼
-            </div>
-            <div style="min-width:0; overflow:hidden; flex:1;">
-              <div style="font-size:12.5px; font-weight:800; color:var(--text-primary); white-space:nowrap; text-overflow:ellipsis; overflow:hidden;" title="${name}">${name}</div>
-              <div style="font-size:10.5px; color:#38bdf8; font-weight:700; display:flex; align-items:center; gap:4px;">
-                <span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:#10b981;"></span>
-                <span>Head of Department</span>
-              </div>
-            </div>
-          </div>
-
           <!-- Sidebar Menu -->
           <div class="sidebar-menu" style="flex:1; overflow-y:auto; padding:12px 10px;">
             <div class="sidebar-group-title">MAIN</div>
