@@ -168,7 +168,7 @@ In `server/server.js`, an internal keep-alive loop runs every 5 minutes targetin
 
 ## 6. Android Build & Release Instructions
 
-The native Android app uses an embedded WebView layer loaded from `android_asset/www`, communicating securely with the production cloud API (`https://mishra-group-institute-portal.onrender.com`).
+The native Android app uses an embedded WebView layer loaded from `android_asset/www`, communicating securely with the production cloud API (`https://collage-managemnet-1.onrender.com`).
 
 ### Packaging the Signed Release APK:
 Run the automated packaging engine from PowerShell:
@@ -238,7 +238,7 @@ powershell -ExecutionPolicy Bypass -File .\package_apk.ps1
 ## 9. Troubleshooting & Health Monitoring
 
 ### Health Endpoint (`/api/health`)
-Visit `https://mishra-group-institute-portal.onrender.com/api/health`:
+Visit `https://collage-managemnet-1.onrender.com/api/health`:
 ```json
 {
   "status": "healthy",

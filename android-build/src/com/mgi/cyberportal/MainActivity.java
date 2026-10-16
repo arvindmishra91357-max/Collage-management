@@ -41,7 +41,7 @@ public class MainActivity extends Activity {
     private static final int PERMISSION_REQUEST_CODE = 1002;
     private static final String PREFS_NAME = "MGI_Portal_Prefs";
     private static final String KEY_SERVER_URL = "server_url";
-    private static final String DEFAULT_URL = "https://mishra-group-institute-portal.onrender.com";
+    private static final String DEFAULT_URL = "https://collage-managemnet-1.onrender.com";
 
     @Override
     @SuppressLint("SetJavaScriptEnabled")
@@ -208,6 +208,10 @@ public class MainActivity extends Activity {
         String savedUrl = prefs.getString(KEY_SERVER_URL, null);
         
         if (savedUrl != null && !savedUrl.isEmpty()) {
+            if (savedUrl.contains("mishra-group-institute-portal.onrender.com")) {
+                savedUrl = DEFAULT_URL;
+                prefs.edit().putString(KEY_SERVER_URL, savedUrl).apply();
+            }
             mWebView.loadUrl(savedUrl);
         } else {
             // Load bundled local PWA app or default local server

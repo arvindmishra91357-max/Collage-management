@@ -2,7 +2,7 @@
 // API CLIENT SERVICE WITH DUAL-ENGINE CLOUD & LOCAL FAILSAFE ARCHITECTURE
 // ==========================================================================
 
-const CLOUD_BACKEND_URL = 'https://mishra-group-institute-portal.onrender.com';
+const CLOUD_BACKEND_URL = 'https://collage-managemnet-1.onrender.com';
 
 // Built-in authentic 3CYBER7 Division Official Student Roster (All 65 Students)
 const OFFICIAL_STUDENTS_ROSTER = [
@@ -162,61 +162,64 @@ const API = {
   baseUrl: (function() {
     try {
       const saved = localStorage.getItem('mgi_api_server_url');
-      if (saved && saved.trim()) return saved.trim().replace(/\/+$/, '');
-      const origin = window.location.origin;
+      if (saved && saved.trim()) {
+        const cleanSaved = saved.trim().replace(/\/+$/, '');
+        if (!cleanSaved.includes('mishra-group-institute-portal.onrender.com')) {
+          return cleanSaved;
+        } else {
+          localStorage.setItem('mgi_api_server_url', CLOUD_BACKEND_URL);
+        }
+      }
+      const origin = (typeof window !== 'undefined' && window.location) ? window.location.origin : '';
       if (origin && origin !== 'null' && !origin.startsWith('file:') && !origin.startsWith('content:') && !origin.startsWith('capacitor:') && !origin.startsWith('ionic:')) {
-        return origin.replace(/\/+$/, '');
+        // If testing on localhost port 3000
+        if (origin.includes(':3000')) {
+          return origin.replace(/\/+$/, '');
+        }
       }
     } catch (e) {}
-    return 'http://localhost:3000';
+    return CLOUD_BACKEND_URL;
   })(),
 
   async autoDetectBackend() {
     try {
       const saved = localStorage.getItem('mgi_api_server_url');
       if (saved && saved.trim()) {
-        this.baseUrl = saved.trim().replace(/\/+$/, '');
+        const cleanSaved = saved.trim().replace(/\/+$/, '');
+        if (cleanSaved.includes('mishra-group-institute-portal.onrender.com')) {
+          this.baseUrl = CLOUD_BACKEND_URL;
+          localStorage.setItem('mgi_api_server_url', CLOUD_BACKEND_URL);
+          return this.baseUrl;
+        }
+        this.baseUrl = cleanSaved;
         return this.baseUrl;
       }
 
       const origin = (typeof window !== 'undefined' && window.location) ? window.location.origin : '';
-      const isFile = !origin || origin === 'null' || origin.startsWith('file:') || origin.startsWith('content:');
+      const isFile = !origin || origin === 'null' || origin.startsWith('file:') || origin.startsWith('content:') || origin.startsWith('capacitor:') || origin.startsWith('ionic:');
 
-      // 1. If on port 3000 already, use current origin
+      // 1. If running locally with the express server on port 3000, use current origin
       if (!isFile && origin.includes(':3000')) {
         this.baseUrl = origin.replace(/\/+$/, '');
         return this.baseUrl;
       }
 
-      // 2. Test local Node Express server (http://localhost:3000) with fast ping
-      try {
-        const ping = await this.pingServer('http://localhost:3000');
-        if (ping && ping.online) {
-          this.baseUrl = 'http://localhost:3000';
-          return this.baseUrl;
-        }
-      } catch (e) {}
-
-      // 3. If running on HTTP/HTTPS dev server (e.g. Live Server port 5500), test current origin
-      if (!isFile) {
+      // 2. If running on local dev server (e.g. localhost/127.0.0.1 on port 5500), check if localhost:3000 is available
+      if (!isFile && (origin.includes('localhost') || origin.includes('127.0.0.1'))) {
         try {
-          const originPing = await this.pingServer(origin);
-          if (originPing && originPing.online) {
-            this.baseUrl = origin.replace(/\/+$/, '');
+          const ping = await this.pingServer('http://localhost:3000');
+          if (ping && ping.online) {
+            this.baseUrl = 'http://localhost:3000';
             return this.baseUrl;
           }
         } catch (e) {}
       }
 
-      // 4. Test Cloud URL
-      try {
-        const cloudPing = await this.pingServer(CLOUD_BACKEND_URL);
-        if (cloudPing && cloudPing.online) {
-          this.baseUrl = CLOUD_BACKEND_URL;
-          return this.baseUrl;
-        }
-      } catch (e) {}
+      // 3. In production (Netlify, remote hosting, or native Android WebView), use the original production backend
+      this.baseUrl = CLOUD_BACKEND_URL;
+      return this.baseUrl;
     } catch (e) {}
+    this.baseUrl = CLOUD_BACKEND_URL;
     return this.baseUrl;
   },
 
@@ -619,7 +622,7 @@ const API = {
 
     return {
       success: false,
-      message: `UG ID "${identifier}" not found in 3CYBER7 roster. Please verify or configure Server Settings.`
+      message: `Account "${identifier}" not found. Please verify your User ID and credentials.`
     };
   },
 

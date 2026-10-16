@@ -24,8 +24,8 @@ services:
           name: mgi-postgres-db
           property: connectionString
       - key: CORS_ORIGINS
-        value: https://mishra-group-institute-portal.onrender.com
+        value: https://collage-managemnet-1.onrender.com
       - key: KEEP_ALIVE_URL
-        value: https://mishra-group-institute-portal.onrender.com/api/health
+        value: https://collage-managemnet-1.onrender.com/api/health
       - key: KEEP_ALIVE_INTERVAL_MS
         value: 300000

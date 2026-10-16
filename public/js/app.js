@@ -51,15 +51,19 @@ const App = {
     const user = API.getUser();
 
     if (token && user) {
-      if (user.role === 'ADMIN') {
+      const userRole = (user.role || '').toString().trim().toUpperCase();
+      if (userRole === 'ADMIN' || userRole === 'SUPER_ADMIN') {
         AdminApp.init(user);
-      } else if (user.role === 'HOD') {
+      } else if (userRole === 'HOD') {
         if (window.HodApp) HodApp.init(user);
         else AdminApp.init(user);
-      } else if (user.role === 'TEACHER') {
+      } else if (userRole === 'TEACHER' || userRole === 'FACULTY') {
         TeacherApp.init(user);
-      } else {
+      } else if (userRole === 'STUDENT') {
         StudentApp.init(user);
+      } else {
+        if (API.logout) API.logout();
+        this.showAuth();
       }
     } else {
       this.showAuth();
@@ -145,14 +149,12 @@ const App = {
               </div>
             </div>
 
-            <!-- Server Connection Status Pill in Hero Panel -->
-            <div style="margin-top:20px; padding-top:16px; border-top:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:space-between;">
-              <span id="hero-server-status-pill" class="server-status-pill testing">
-                <span>🔄</span> Testing server connection...
+            <!-- Institutional Security Badge in Hero Panel -->
+            <div style="margin-top:24px; padding-top:16px; border-top:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; gap:8px;">
+              <span style="font-size:14px;">🔒</span>
+              <span style="font-size:12px; color:var(--text-muted);">
+                256-bit Encrypted Institutional Access • Session Security Enforced
               </span>
-              <button type="button" onclick="App.openServerConfigModal()" style="background:transparent; border:none; color:var(--text-muted); font-size:11.5px; cursor:pointer; text-decoration:underline;">
-                Server Settings ⚙️
-              </button>
             </div>
           </div>
 
@@ -180,14 +182,14 @@ const App = {
             </div>
 
             <!-- Desktop Card Header (Visible only on >= 920px) -->
-            <div class="desktop-card-header">
-              <h2 style="font-size:22px; font-weight:800; letter-spacing:-0.02em; margin:0 0 4px;">Sign In to Portal</h2>
+            <div class="desktop-card-header" style="margin-bottom:22px;">
+              <h2 style="font-size:24px; font-weight:800; letter-spacing:-0.02em; margin:0 0 6px;">Sign In to Portal</h2>
               <p style="font-size:13px; color:var(--text-secondary); margin:0;">Enter your institutional credentials to continue</p>
             </div>
 
             <!-- Saved Account Quick Switch Banner -->
             ${savedId ? `
-              <div id="saved-account-banner" style="display:flex; align-items:center; justify-content:space-between; background:rgba(56,189,248,0.1); border:1px solid rgba(56,189,248,0.28); padding:8px 12px; border-radius:var(--radius-md); margin-bottom:14px; font-size:12px;">
+              <div id="saved-account-banner" style="display:flex; align-items:center; justify-content:space-between; background:rgba(56,189,248,0.1); border:1px solid rgba(56,189,248,0.28); padding:8px 12px; border-radius:var(--radius-md); margin-bottom:16px; font-size:12px;">
                 <span style="color:#38bdf8; font-weight:600; display:flex; align-items:center; gap:6px;">
                   <span>👤</span> Saved ID: <strong>${savedId}</strong>
                 </span>
@@ -197,36 +199,12 @@ const App = {
               </div>
             ` : ''}
 
-            <!-- Quick Role Chips for 1-Click Fast PC Testing -->
-            <div style="margin-bottom:14px;">
-              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                <span style="font-size:11.5px; font-weight:700; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px;">Select Role Quick Fill</span>
-                <span id="auth-server-status-pill" class="server-status-pill testing" style="font-size:11px; padding:3px 8px; cursor:pointer;" onclick="App.openServerConfigModal()" title="Click to view or change Server Address">
-                  <span>🔄</span> Connecting...
-                </span>
-              </div>
-              <div class="role-chips-row">
-                <button type="button" id="role-chip-student" class="role-chip active" onclick="App.selectRoleChip('student')">
-                  <span>🎓</span> Student
-                </button>
-                <button type="button" id="role-chip-admin" class="role-chip" onclick="App.selectRoleChip('admin')">
-                  <span>🛡️</span> Admin
-                </button>
-                <button type="button" id="role-chip-teacher" class="role-chip" onclick="App.selectRoleChip('teacher')">
-                  <span>👨‍🏫</span> Faculty
-                </button>
-                <button type="button" id="role-chip-hod" class="role-chip" onclick="App.selectRoleChip('hod')">
-                  <span>🏛️</span> HOD
-                </button>
-              </div>
-            </div>
-
             <!-- Unified Login Form -->
             <form id="unified-login-form" action="javascript:void(0);" method="post" onsubmit="event.preventDefault(); App.handleUnifiedLogin(); return false;" autocomplete="on">
               
-              <div class="form-group">
+              <div class="form-group" style="margin-bottom:18px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                  <label class="form-label" for="login-identifier" style="margin-bottom:0;">Account / User ID *</label>
+                  <label class="form-label" for="login-identifier" style="margin-bottom:0; font-weight:600;">User ID *</label>
                   <span id="id-switch-hint" style="font-size:11px; color:var(--text-muted); display:${savedId ? 'inline' : 'none'};">Tap ✕ to change</span>
                 </div>
                 <div class="input-container">
@@ -236,7 +214,7 @@ const App = {
                     id="login-identifier" 
                     name="username" 
                     class="form-control has-action" 
-                    placeholder="UG ID (e.g. 26UG033181), Roll No, or Admin" 
+                    placeholder="Enter your User ID" 
                     autocomplete="username" 
                     required 
                     spellcheck="false" 
@@ -248,8 +226,8 @@ const App = {
                 </div>
               </div>
 
-              <div class="form-group">
-                <label class="form-label" for="login-password">Password *</label>
+              <div class="form-group" style="margin-bottom:20px;">
+                <label class="form-label" for="login-password" style="margin-bottom:6px; font-weight:600;">Password *</label>
                 <div class="input-container">
                   <span class="input-icon">🔒</span>
                   <input 
@@ -265,7 +243,7 @@ const App = {
                     👁️
                   </button>
                 </div>
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">
                   <label style="display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--text-secondary); cursor:pointer; user-select:none;">
                     <input type="checkbox" id="login-remember-me" checked style="accent-color:var(--primary); cursor:pointer; width:14px; height:14px;" />
                     <span>Remember My ID</span>
@@ -274,16 +252,16 @@ const App = {
                 </div>
               </div>
 
-              <button type="submit" class="btn-primary" id="login-submit-btn" style="margin-top:14px; font-weight:800; letter-spacing:0.5px; height:46px;">
+              <button type="submit" class="btn-primary" id="login-submit-btn" style="margin-top:6px; font-weight:800; letter-spacing:0.5px; height:48px;">
                 <span>Sign In to Portal</span>
               </button>
 
-              <div style="text-align:center; margin-top:16px; padding-top:12px; border-top:1px solid var(--border-color); font-size:12px; color:var(--text-muted);">
+              <div style="text-align:center; margin-top:20px; padding-top:14px; border-top:1px solid var(--border-color); font-size:12px; color:var(--text-muted);">
                 🛡️ Mishra Group Institute • Division 3CYBER7 Official Portal
               </div>
 
               <!-- Secondary Actions & Utilities -->
-              <div style="margin-top:14px; text-align:center; display:flex; flex-direction:column; gap:8px; align-items:center;">
+              <div style="margin-top:16px; text-align:center; display:flex; flex-direction:column; gap:8px; align-items:center;">
                 <button type="button" id="btn-pwa-install" class="btn-pwa-install" onclick="App.triggerPWAInstall()" style="display:none; align-items:center; justify-content:center; gap:8px; padding:9px 20px; font-size:12.5px; font-weight:700; border-radius:var(--radius-full); background:linear-gradient(135deg, rgba(56,189,248,0.2), rgba(14,165,233,0.15)); border:1px solid rgba(56,189,248,0.5); color:#38bdf8; cursor:pointer; transition:all 0.2s ease;">
                   <span>📲</span> <span>Install App (PWA)</span>
                 </button>
@@ -291,9 +269,6 @@ const App = {
                   <a href="/apk/MGI_Student_Portal.apk" download="MGI_Student_Portal.apk" onclick="App.handleAPKDownload(event)" style="display:inline-flex; align-items:center; gap:6px; padding:7px 14px; font-size:12px; font-weight:700; text-decoration:none; border-radius:var(--radius-full); background:rgba(56,189,248,0.12); border:1px solid rgba(56,189,248,0.35); color:#38bdf8; transition:all 0.2s ease;">
                     <span>🤖</span> <span>Download Android App (.apk)</span>
                   </a>
-                  <button type="button" onclick="App.openServerConfigModal()" style="background:transparent; border:none; color:var(--text-muted); font-size:12px; cursor:pointer; display:inline-flex; align-items:center; gap:4px; text-decoration:underline;">
-                    <span>⚙️</span> <span>Connection Settings</span>
-                  </button>
                 </div>
               </div>
             </form>
@@ -304,100 +279,6 @@ const App = {
 
     this.setupLoginInputHandlers(savedId);
     setTimeout(() => this.updatePWAInstallVisibility(), 50);
-  },
-
-  selectRoleChip(role) {
-    const idInput = document.getElementById('login-identifier');
-    const passInput = document.getElementById('login-password');
-    const clearBtn = document.getElementById('btn-clear-id');
-    document.querySelectorAll('.role-chip').forEach(c => c.classList.remove('active'));
-    const clickedChip = document.getElementById(`role-chip-${role}`);
-    if (clickedChip) clickedChip.classList.add('active');
-
-    if (role === 'student') {
-      if (idInput) {
-        idInput.value = '26UG033181';
-        idInput.placeholder = 'Enter UG ID (e.g. 26UG033181) or Roll No';
-      }
-      if (passInput) {
-        passInput.value = 'Bunny@2606';
-        passInput.placeholder = 'Enter Student Password (e.g. Bunny@2606)';
-      }
-      if (clearBtn) clearBtn.style.display = 'inline-flex';
-      this.showToast('Student credentials filled (26UG033181 / Bunny@2606). Ready to Sign In!', 'info');
-    } else if (role === 'admin') {
-      if (idInput) {
-        idInput.value = 'admin';
-        idInput.placeholder = 'Enter Admin ID (admin or Bettu&Bunny)';
-      }
-      if (passInput) {
-        passInput.value = 'admin123';
-        passInput.placeholder = 'Enter Admin Password (e.g. admin123)';
-      }
-      if (clearBtn) clearBtn.style.display = 'inline-flex';
-      this.showToast('Admin credentials filled (admin / admin123). Ready to Sign In!', 'info');
-    } else if (role === 'teacher') {
-      if (idInput) {
-        idInput.value = 'TESTTEACHER';
-        idInput.placeholder = 'Enter Faculty ID (TESTTEACHER)';
-      }
-      if (passInput) {
-        passInput.value = 'TestTeacher@123';
-        passInput.placeholder = 'Enter Faculty Password (e.g. TestTeacher@123)';
-      }
-      if (clearBtn) clearBtn.style.display = 'inline-flex';
-      this.showToast('Faculty credentials filled (TESTTEACHER / TestTeacher@123). Ready to Sign In!', 'info');
-    } else if (role === 'hod') {
-      if (idInput) {
-        idInput.value = 'HOD_CSE';
-        idInput.placeholder = 'Enter HOD ID (HOD_CSE)';
-      }
-      if (passInput) {
-        passInput.value = 'Hod@123';
-        passInput.placeholder = 'Enter HOD Password (e.g. Hod@123)';
-      }
-      if (clearBtn) clearBtn.style.display = 'inline-flex';
-      this.showToast('HOD credentials filled (HOD_CSE / Hod@123). Ready to Sign In!', 'info');
-    }
-  },
-
-  async updateServerConnectionStatus() {
-    const pill = document.getElementById('auth-server-status-pill');
-    const heroPill = document.getElementById('hero-server-status-pill');
-    if (!pill && !heroPill) return;
-
-    try {
-      if (API.autoDetectBackend) {
-        await API.autoDetectBackend();
-      }
-      const ping = await API.pingServer();
-
-      const isLocal = API.baseUrl && (API.baseUrl.includes('localhost') || API.baseUrl.includes('127.0.0.1'));
-      let label = '';
-      let cls = 'server-status-pill';
-
-      if (ping && ping.online) {
-        label = `🟢 ${isLocal ? 'Local Server (Port 3000)' : 'Cloud Backend'} • ${ping.latency}ms`;
-        cls = 'server-status-pill';
-      } else {
-        label = '🟡 Standalone Offline Mode (Roster Active)';
-        cls = 'server-status-pill offline';
-      }
-
-      if (pill) {
-        pill.className = cls;
-        pill.innerHTML = label;
-      }
-      if (heroPill) {
-        heroPill.className = cls;
-        heroPill.innerHTML = label;
-      }
-    } catch (e) {
-      if (pill) {
-        pill.className = 'server-status-pill offline';
-        pill.innerHTML = '🟡 Offline Engine Active';
-      }
-    }
   },
 
   setupLoginInputHandlers(initialId = '') {
@@ -453,8 +334,10 @@ const App = {
       });
     }
 
-    // Auto-detect server in background & update live ping pill
-    setTimeout(() => this.updateServerConnectionStatus(), 60);
+    // Auto-detect backend in background silently
+    if (API && API.autoDetectBackend) {
+      API.autoDetectBackend().catch(() => {});
+    }
   },
 
   clearLoginFields(forgetSaved = false) {
@@ -501,105 +384,6 @@ const App = {
     this.showToast('Starting Official Android APK download (169 KB)... Check browser downloads.', 'info');
   },
 
-  openServerConfigModal() {
-    const existing = document.getElementById('server-config-modal');
-    if (existing) existing.remove();
-
-    const currentUrl = API.baseUrl || 'http://localhost:3000';
-
-    const modal = document.createElement('div');
-    modal.className = 'modal-backdrop';
-    modal.id = 'server-config-modal';
-    modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
-    modal.innerHTML = `
-      <div class="modal-card" style="max-width:440px; padding:24px;" onclick="event.stopPropagation()">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-          <h3 style="font-size:16px; font-weight:800; display:flex; align-items:center; gap:8px; margin:0;">
-            <span>🌐</span> Server Connection Settings
-          </h3>
-          <button class="icon-btn" onclick="document.getElementById('server-config-modal').remove()" style="width:28px; height:28px;">✕</button>
-        </div>
-
-        <p style="font-size:12px; color:var(--text-secondary); line-height:1.5; margin-bottom:12px;">
-          Connect your Android Mobile or Web browser to your Node.js backend server.
-        </p>
-
-        <!-- Quick Presets -->
-        <div style="margin-bottom:14px;">
-          <label style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; display:block; margin-bottom:6px;">Quick Presets</label>
-          <div style="display:flex; gap:6px; flex-wrap:wrap;">
-            <button type="button" class="btn-sec" onclick="document.getElementById('cfg-server-url').value='http://10.227.22.145:3000'; App.testServerConnection();" style="padding:4px 8px; font-size:11px; margin:0;">
-              📶 Wi-Fi IP (10.227.22.145:3000)
-            </button>
-            <button type="button" class="btn-sec" onclick="document.getElementById('cfg-server-url').value='http://localhost:3000'; App.testServerConnection();" style="padding:4px 8px; font-size:11px; margin:0;">
-              💻 Localhost (3000)
-            </button>
-          </div>
-        </div>
-
-        <div class="form-group" style="margin-bottom:12px;">
-          <label class="form-label" style="font-size:12px;">Server API Base URL</label>
-          <input type="url" id="cfg-server-url" class="form-control" value="${currentUrl}" placeholder="http://10.227.22.145:3000" style="font-family:monospace; font-size:12px; padding:8px 12px;" />
-        </div>
-
-        <div id="cfg-ping-result" style="font-size:12px; margin-bottom:14px; padding:8px 12px; border-radius:6px; background:rgba(255,255,255,0.04); display:flex; align-items:center; justify-content:space-between;">
-          <span id="cfg-ping-status" style="color:var(--text-muted);">Status: Untested</span>
-          <button type="button" class="btn-sec" onclick="App.testServerConnection()" style="padding:4px 10px; font-size:11px; margin:0;">Ping Server</button>
-        </div>
-
-        <div style="display:flex; gap:10px; justify-content:flex-end;">
-          <button type="button" class="btn-sec" onclick="App.resetServerConfig()" style="padding:8px 14px; font-size:12px; margin:0;">Reset Default</button>
-          <button type="button" class="btn-primary" onclick="App.saveServerConfig()" style="padding:8px 18px; font-size:12px; margin:0; width:auto;">Save & Connect</button>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(modal);
-  },
-
-  async testServerConnection() {
-    const statusEl = document.getElementById('cfg-ping-status');
-    const inputEl = document.getElementById('cfg-server-url');
-    if (!statusEl || !inputEl) return;
-
-    statusEl.innerHTML = '⏳ Testing connection...';
-    const target = inputEl.value.trim();
-    const res = await API.pingServer(target);
-
-    if (res.online) {
-      statusEl.innerHTML = `<span style="color:#34d399; font-weight:700;">🟢 Online (${res.latency}ms)</span>`;
-      this.showToast(`Server is online and reachable (${res.latency}ms)!`, 'success');
-    } else {
-      statusEl.innerHTML = `<span style="color:#f87171; font-weight:700;">🔴 Unreachable (${res.status || 'Offline'})</span>`;
-      this.showToast('Could not reach backend server at this address. Offline mode will be used.', 'warning');
-    }
-  },
-
-  saveServerConfig() {
-    const inputEl = document.getElementById('cfg-server-url');
-    if (!inputEl) return;
-    const url = inputEl.value.trim();
-    if (!url) {
-      this.showToast('Please enter a valid URL.', 'error');
-      return;
-    }
-    API.setBaseUrl(url);
-    this.showToast(`Backend server set to: ${url}`, 'success');
-    const modal = document.getElementById('server-config-modal');
-    if (modal) modal.remove();
-    this.updateServerConnectionStatus();
-  },
-
-  resetServerConfig() {
-    try {
-      localStorage.removeItem('mgi_api_server_url');
-    } catch (e) {}
-    API.baseUrl = 'http://localhost:3000';
-    const inputEl = document.getElementById('cfg-server-url');
-    if (inputEl) inputEl.value = API.baseUrl;
-    this.showToast('Server URL reset to local default.', 'info');
-    this.updateServerConnectionStatus();
-  },
-
   async handleUnifiedLogin() {
     const idInput = document.getElementById('login-identifier');
     const passInput = document.getElementById('login-password');
@@ -608,7 +392,7 @@ const App = {
     const submitBtn = document.getElementById('login-submit-btn');
 
     if (!identifier || !password) {
-      this.showToast('Please enter your Account ID and Password.', 'error');
+      this.showToast('Please enter your User ID and Password.', 'error');
       if (!identifier && idInput) idInput.focus();
       else if (!password && passInput) passInput.focus();
       return;
@@ -630,7 +414,7 @@ const App = {
       submitBtn.innerHTML = '<span>Sign In to Portal</span>';
     }
 
-    if (res.success) {
+    if (res && res.success && res.user) {
       const rememberCheckbox = document.getElementById('login-remember-me');
       try {
         if (rememberCheckbox && rememberCheckbox.checked) {
@@ -643,34 +427,39 @@ const App = {
       API.setToken(res.token);
       API.setUser(res.user);
 
-      if (res.user.role === 'ADMIN') {
+      const userRole = (res.user.role || '').toString().trim().toUpperCase();
+
+      if (userRole === 'ADMIN' || userRole === 'SUPER_ADMIN') {
         try {
           history.replaceState({ role: 'ADMIN', section: 'dashboard' }, '', '#admin-dashboard');
         } catch (e) {}
         this.showToast(res.isOffline ? 'Admin login verified (Netlify Standalone Mode).' : 'Admin login verified. Opening Admin Dashboard...', 'success');
         AdminApp.init(res.user, 'dashboard');
-      } else if (res.user.role === 'HOD') {
+      } else if (userRole === 'HOD') {
         try {
           history.replaceState({ role: 'HOD', section: 'dashboard' }, '', '#hod-dashboard');
         } catch (e) {}
         this.showToast(`Welcome back, ${res.user.name || 'Head of Department'}! HOD Portal Access Granted.`, 'success');
         if (window.HodApp) HodApp.init(res.user, 'dashboard');
         else AdminApp.init(res.user, 'dashboard');
-      } else if (res.user.role === 'TEACHER') {
+      } else if (userRole === 'TEACHER' || userRole === 'FACULTY') {
         try {
           history.replaceState({ role: 'TEACHER', section: 'dashboard' }, '', '#teacher-dashboard');
         } catch (e) {}
         this.showToast(`Welcome back, Prof. ${res.user.name}!${res.isOffline ? ' (Failsafe Active)' : ''}`, 'success');
         TeacherApp.init(res.user, 'dashboard');
-      } else {
+      } else if (userRole === 'STUDENT') {
         try {
           history.replaceState({ role: 'STUDENT', tab: 'home' }, '', '#home');
         } catch (e) {}
         this.showToast(`Welcome back, ${res.user.name}!${res.isOffline ? ' (Failsafe Active)' : ''}`, 'success');
         StudentApp.init(res.user, 'home');
+      } else {
+        if (API.logout) API.logout();
+        this.showToast('Account has an unrecognized or unauthorized role. Access denied.', 'error');
       }
     } else {
-      this.showToast(res.message || 'Login failed. Please check credentials.', 'error');
+      this.showToast((res && res.message) ? res.message : 'Invalid User ID or Password. Please check credentials.', 'error');
     }
   },
 
@@ -830,7 +619,7 @@ const App = {
     }
 
     // 1. Check if any modal backdrop or drawer is currently active in DOM (e.g. user pressed hardware back button)
-    const openModals = document.querySelectorAll('.modal-backdrop, #photo-modal, #ai-tutor-modal, #search-modal, #notif-modal, #results-modal, #scanner-modal, #student-modal, #timetable-modal, #edit-tt-modal, #notice-modal, #event-modal, #server-config-modal');
+    const openModals = document.querySelectorAll('.modal-backdrop, #photo-modal, #ai-tutor-modal, #search-modal, #notif-modal, #results-modal, #scanner-modal, #student-modal, #timetable-modal, #edit-tt-modal, #notice-modal, #event-modal');
     if (openModals.length > 0) {
       const topModal = openModals[openModals.length - 1];
       if (topModal.id === 'scanner-modal' && window.StudentApp) {
