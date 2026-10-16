@@ -66,9 +66,12 @@ function generateDynamicToken(sessionId, secret, intervalSeconds = 15) {
 
 // Helper: Fetch teacher record from DB
 async function getTeacherRecord(req) {
-  const teacherId = req.user.teacher_id || req.user.username;
-  if (!teacherId) return null;
-  return await db.get("SELECT * FROM teachers WHERE UPPER(teacher_id) = UPPER(?) OR id = ?", [teacherId, req.user.id || 0]);
+  const teacherId = req.user && (req.user.teacher_id || req.user.username);
+  let teacher = null;
+  if (teacherId) {
+    teacher = await db.get("SELECT * FROM teachers WHERE UPPER(teacher_id) = UPPER(?) OR id = ?", [teacherId, req.user?.id || 0]);
+  }
+  return teacher || (req.user && req.user.role === 'TEACHER' ? req.user : null);
 }
 
 // Helper: Parse assigned subjects list
@@ -340,7 +343,7 @@ async function getStudents(req, res) {
     if (!teacher) return res.status(404).json({ success: false, message: 'Teacher not found.' });
 
     const { search, batch } = req.query;
-    let sql = "SELECT id, ug_id, name, roll_number, phone_number, batch, division, program, status, profile_photo_url FROM students WHERE 1=1";
+    let sql = "SELECT id, ug_id, name, roll_number, phone_number, batch, division, program, year, semester, academic_year, department, status, profile_photo_url, is_cr, cr_batches FROM students WHERE 1=1";
     const params = [];
 
     // Enforce teacher's assigned batch restriction
@@ -410,7 +413,7 @@ async function getStudentProfile(req, res) {
     const cleanUgId = (ug_id || '').toUpperCase();
 
     const student = await db.get(
-      "SELECT id, ug_id, name, roll_number, phone_number, batch, division, program, year, semester, academic_year, status, profile_photo_url, is_cr, cr_batches FROM students WHERE UPPER(ug_id) = ?",
+      "SELECT id, ug_id, name, roll_number, phone_number, batch, division, program, year, semester, academic_year, department, status, profile_photo_url, is_cr, cr_batches FROM students WHERE UPPER(ug_id) = ?",
       [cleanUgId]
     );
 
@@ -460,6 +463,14 @@ async function getStudentProfile(req, res) {
       SELECT * FROM results WHERE UPPER(ug_id) = ? ${resultsCond} ORDER BY exam_name ASC
     `, resParams);
 
+    // Mentoring records (authorized non-confidential notes)
+    const mentoring = await db.query(`
+      SELECT mentor_name, session_date, academic_concerns, attendance_status, notes, action_plan, status
+      FROM mentoring_records
+      WHERE UPPER(student_ug_id) = ?
+      ORDER BY session_date DESC
+    `, [cleanUgId]);
+
     return res.json({
       success: true,
       data: {
@@ -467,7 +478,8 @@ async function getStudentProfile(req, res) {
         attendance: attendanceHistory,
         attendanceHistory,
         submissions,
-        results
+        results,
+        mentoring
       }
     });
   } catch (err) {

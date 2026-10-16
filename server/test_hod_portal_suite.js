@@ -207,6 +207,11 @@ async function runTests() {
     }, hodToken);
     assert(conflictRes.status === 409, 'POST conflicting slot returns 409 Conflict detection');
 
+    if (slotRes.data && slotRes.data.id) {
+      const delSlotRes = await makeRequest('/api/hod/timetable/' + slotRes.data.id, 'DELETE', null, hodToken);
+      assert(delSlotRes.status === 200, 'DELETE /api/hod/timetable/:id removes created slot');
+    }
+
     // Phase 9: Module 7 - Attendance Management
     console.log('\n[Phase 9] Testing Module 7: Attendance Management...');
     const attRes = await makeRequest('/api/hod/attendance', 'GET', null, hodToken);

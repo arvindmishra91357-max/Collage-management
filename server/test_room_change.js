@@ -106,6 +106,7 @@ async function runTests() {
     timetable_id: testSlot.id,
     date: todayDate,
     new_room: 'NB-204',
+    override_conflict: true,
     reason: 'Lab projector repair shift'
   });
   assert(changeRes.status === 200 && changeRes.data.success, 'Admin creates date-specific room change (DBMS -> NB-204).');

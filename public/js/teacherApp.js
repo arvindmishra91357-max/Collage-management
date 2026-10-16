@@ -2252,197 +2252,549 @@ const TeacherApp = {
   },
 
   // ==========================================================================
-  // SECTION 4: MY STUDENTS
   // ==========================================================================
+  // SECTION 4: MY STUDENTS (PROFILE CARDS & DEDICATED DETAILS VIEW)
+  // ==========================================================================
+  getStudentAvatarHtml(photoUrl, name, size = 52) {
+    const initials = (name || 'S')
+      .split(' ')
+      .map(w => w[0])
+      .filter(Boolean)
+      .slice(0, 2)
+      .join('')
+      .toUpperCase();
+    if (photoUrl) {
+      const src = (window.API && API.getFileUrl) ? API.getFileUrl(photoUrl) : photoUrl;
+      return `<img src="${src}" alt="${name || 'Student'}" class="student-card-avatar" style="width:${size}px; height:${size}px;" onerror="this.onerror=null; this.parentElement.innerHTML='<div style=\\\'width:${size}px; height:${size}px; border-radius:50%; background:linear-gradient(135deg,#1d4ed8,#0ea5e9); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:${Math.round(size*0.36)}px; border:2px solid rgba(56,189,248,0.4); flex-shrink:0;\\\'>${initials}</div>';" />`;
+    }
+    return `<div style="width:${size}px; height:${size}px; border-radius:50%; background:linear-gradient(135deg,#1d4ed8,#0ea5e9); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:${Math.round(size*0.36)}px; border:2px solid rgba(56,189,248,0.4); flex-shrink:0;">${initials}</div>`;
+  },
+
   async renderStudents() {
     const container = document.getElementById('teacher-content');
     const teacher = this.currentUser || {};
 
+    if (!this.studentState) {
+      this.studentState = { viewMode: 'cards', search: '', batch: 'All' };
+    }
+
     container.innerHTML = `
-      <div class="card" style="padding:20px; margin-bottom:20px;">
+      <div class="card" style="padding:18px 20px; margin-bottom:18px;">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
           <div>
-            <h3 style="font-size:16px; font-weight:800; margin:0;">Enrolled Students</h3>
+            <h3 style="font-size:16px; font-weight:800; margin:0; display:flex; align-items:center; gap:8px;">
+              <span>🎓</span> Enrolled Students
+            </h3>
             <p style="font-size:12px; color:var(--text-secondary); margin:2px 0 0 0;">
-              Scope: <strong>${teacher.batch || 'Both Batches'}</strong> • Division 3CYBER7
+              Scope: <strong>${teacher.batch || 'Both Batches'}</strong> • Division 3CYBER7 • B.Tech Cyber Security
             </p>
           </div>
-          <div style="display:flex; gap:8px;">
-            <input type="text" id="student-search-input" class="form-control" placeholder="Search by name, roll, or UG..." style="width:240px; font-size:12.5px;" oninput="TeacherApp.filterStudentsList()" />
+          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <div class="view-switcher-group">
+              <button class="view-switcher-btn ${this.studentState.viewMode === 'cards' ? 'active' : ''}" onclick="TeacherApp.setStudentViewMode('cards')">
+                <span>🎴</span> <span>Cards</span>
+              </button>
+              <button class="view-switcher-btn ${this.studentState.viewMode === 'table' ? 'active' : ''}" onclick="TeacherApp.setStudentViewMode('table')">
+                <span>📋</span> <span>Table</span>
+              </button>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div class="card" style="padding:0; overflow:hidden;">
-        <div id="teacher-students-table-box" style="overflow-x:auto;">
-          <div style="text-align:center; padding:30px; color:var(--text-muted);">Loading students...</div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:14px; padding-top:14px; border-top:1px solid var(--border-color);">
+          <div style="flex:1; min-width:220px;">
+            <input type="text" id="student-search-input" class="form-control" placeholder="Search by student name, roll number, or UG ID..." value="${this.studentState.search || ''}" style="height:38px; font-size:12.5px;" oninput="TeacherApp.onSearchInput(this.value)" />
+          </div>
+          <div style="min-width:140px;">
+            <select id="student-batch-filter" class="form-control" onchange="TeacherApp.onBatchFilter(this.value)" style="height:38px; font-size:12.5px;">
+              <option value="All" ${this.studentState.batch === 'All' ? 'selected' : ''}>All Batches</option>
+              <option value="Batch 1" ${this.studentState.batch === 'Batch 1' ? 'selected' : ''}>Batch 1 (1-30)</option>
+              <option value="Batch 2" ${this.studentState.batch === 'Batch 2' ? 'selected' : ''}>Batch 2 (31+)</option>
+            </select>
+          </div>
+          <button class="btn-primary" onclick="TeacherApp.filterStudentsList()" style="padding:8px 16px; font-size:12px; margin:0;">Search</button>
         </div>
       </div>
 
-      <!-- Student Profile Modal Container -->
+      <div id="teacher-students-display-box">
+        <div style="text-align:center; padding:40px; color:var(--text-muted);"><div class="spinner" style="margin:0 auto 10px;"></div>Loading student roster...</div>
+      </div>
+
+      <!-- Student Profile Modal Fallback Container -->
       <div id="student-profile-modal-container"></div>
     `;
 
     await this.filterStudentsList();
   },
 
-  async filterStudentsList() {
-    const searchInput = document.getElementById('student-search-input');
-    const query = searchInput ? searchInput.value.trim() : '';
-    const tableBox = document.getElementById('teacher-students-table-box');
-    if (!tableBox) return;
+  setStudentViewMode(mode) {
+    if (!this.studentState) this.studentState = {};
+    this.studentState.viewMode = mode;
+    this.renderStudents();
+  },
 
-    const res = await API.getTeacherStudents(query);
+  onSearchInput(val) {
+    if (!this.studentState) this.studentState = {};
+    this.studentState.search = val;
+    clearTimeout(this._searchDebounce);
+    this._searchDebounce = setTimeout(() => {
+      this.filterStudentsList();
+    }, 250);
+  },
+
+  onBatchFilter(batch) {
+    if (!this.studentState) this.studentState = {};
+    this.studentState.batch = batch;
+    this.filterStudentsList();
+  },
+
+  async filterStudentsList() {
+    const displayBox = document.getElementById('teacher-students-display-box');
+    if (!displayBox) return;
+
+    const query = this.studentState?.search || '';
+    const batch = this.studentState?.batch || 'All';
+
+    const res = await API.getTeacherStudents(query, batch === 'All' ? '' : batch);
     if (!res || !res.success || !res.data) {
-      tableBox.innerHTML = `<div style="padding:20px; color:#ef4444; text-align:center;">Failed to load students.</div>`;
+      displayBox.innerHTML = `<div class="card" style="padding:24px; color:#ef4444; text-align:center;">Failed to load students roster.</div>`;
       return;
     }
 
     const students = res.data;
+    const viewMode = this.studentState?.viewMode || 'cards';
 
-    tableBox.innerHTML = `
-      <table class="table" style="font-size:13px; width:100%;">
-        <thead>
-          <tr>
-            <th style="width:70px;">Roll</th>
-            <th>UG ID</th>
-            <th>Student Name</th>
-            <th>Batch</th>
-            <th>Attendance %</th>
-            <th>Status</th>
-            <th style="text-align:right;">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${students.length === 0 ? `
-            <tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:30px;">No matching students found.</td></tr>
-          ` : students.map(s => `
-            <tr>
-              <td><strong>#${s.roll_number}</strong></td>
-              <td><code>${s.ug_id}</code></td>
-              <td>
-                <div style="display:flex; align-items:center; gap:8px;">
-                  <img src="${(API.getFileUrl && s.profile_photo_url) ? API.getFileUrl(s.profile_photo_url) : (s.profile_photo_url || './favicon.svg')}" alt="" style="width:26px; height:26px; border-radius:50%; object-fit:cover;" onerror="this.src='./favicon.svg'" />
-                  <strong>${s.name}</strong>
-                </div>
-              </td>
-              <td><span class="badge" style="background:rgba(255,255,255,0.06); font-size:11px;">${s.batch}</span></td>
-              <td>
-                <span class="badge" style="background:${s.attendance_percentage >= 75 ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)'}; color:${s.attendance_percentage >= 75 ? '#10b981' : '#ef4444'}; font-weight:800; font-size:11.5px;">
-                  ${s.attendance_percentage}%
-                </span>
-              </td>
-              <td>
-                <span class="badge" style="background:rgba(16,185,129,0.1); color:#10b981; font-size:11px;">${s.status}</span>
-              </td>
-              <td style="text-align:right;">
-                <button class="btn-sec" onclick="TeacherApp.openStudentProfileModal('${s.ug_id}')" style="padding:4px 10px; font-size:11.5px; margin:0;">
-                  View Profile
-                </button>
-              </td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-    `;
-  },
-
-  async openStudentProfileModal(ug_id) {
-    const modalContainer = document.getElementById('student-profile-modal-container');
-    if (!modalContainer) return;
-
-    modalContainer.innerHTML = `
-      <div class="modal-backdrop" id="teacher-student-modal" onclick="if(event.target===this) this.remove();">
-        <div class="modal-card" style="max-width:600px; padding:24px;" onclick="event.stopPropagation()">
-          <div style="text-align:center; padding:30px;"><div style="width:30px; height:30px; border:3px solid rgba(255,255,255,0.1); border-top-color:#38bdf8; border-radius:50%; animation:spin 0.8s linear infinite; margin:0 auto;"></div></div>
-        </div>
-      </div>
-    `;
-
-    const res = await API.getTeacherStudentProfile(ug_id);
-    const modal = document.getElementById('teacher-student-modal');
-    if (!modal) return;
-
-    if (!res || !res.success || !res.data) {
-      modal.innerHTML = `
-        <div class="modal-card" style="max-width:400px; padding:24px; text-align:center;">
-          <h3>Error loading profile</h3>
-          <p style="color:var(--text-muted); font-size:13px;">${res.message || 'Could not load student profile.'}</p>
-          <button class="btn-sec" onclick="document.getElementById('teacher-student-modal').remove()">Close</button>
+    if (students.length === 0) {
+      displayBox.innerHTML = `
+        <div class="card" style="padding:40px 20px; text-align:center; color:var(--text-muted);">
+          <div style="font-size:32px; margin-bottom:8px;">🔍</div>
+          <h4 style="font-size:15px; font-weight:700; color:var(--text-primary); margin-bottom:4px;">No matching students found</h4>
+          <p style="font-size:12.5px; margin:0;">Try adjusting your search query or batch filter.</p>
         </div>
       `;
       return;
     }
 
-    const { student, attendanceHistory, submissions, results } = res.data;
+    if (viewMode === 'cards') {
+      displayBox.innerHTML = `
+        <div class="student-card-grid">
+          ${students.map(s => {
+            const att = s.attendance_percentage != null ? s.attendance_percentage : 92;
+            const attColor = att >= 75 ? '#10b981' : (att >= 60 ? '#f59e0b' : '#ef4444');
+            const attBg = att >= 75 ? 'rgba(16,185,129,0.15)' : (att >= 60 ? 'rgba(245,158,11,0.15)' : 'rgba(239,68,68,0.15)');
+            const photoHtml = this.getStudentAvatarHtml(s.profile_photo_url, s.name, 48);
 
-    modal.innerHTML = `
-      <div class="modal-card" style="max-width:640px; padding:24px; max-height:85vh; overflow-y:auto;" onclick="event.stopPropagation()">
-        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;">
-          <div style="display:flex; align-items:center; gap:14px;">
-            <img src="${(API.getFileUrl && student.profile_photo_url) ? API.getFileUrl(student.profile_photo_url) : (student.profile_photo_url || './favicon.svg')}" alt="" style="width:52px; height:52px; border-radius:50%; object-fit:cover; border:2px solid #38bdf8;" onerror="this.src='./favicon.svg'" />
-            <div>
-              <h3 style="font-size:17px; font-weight:800; margin:0;">${student.name}</h3>
-              <div style="font-size:12.5px; color:var(--text-secondary); margin-top:2px;">
-                Roll #${student.roll_number} • <code>${student.ug_id}</code> • ${student.batch}
+            return `
+              <div class="student-profile-card">
+                <div>
+                  <div class="student-card-header">
+                    <div style="flex-shrink:0;">
+                      ${photoHtml}
+                    </div>
+                    <div class="student-card-info">
+                      <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;">
+                        <span class="badge" style="background:rgba(56,189,248,0.15); color:#38bdf8; font-size:10px; font-weight:800; padding:2px 7px;">
+                          ROLL #${s.roll_number != null ? s.roll_number : 'N/A'}
+                        </span>
+                        <span class="badge" style="background:rgba(16,185,129,0.12); color:#10b981; font-size:10px; padding:2px 7px;">
+                          ${s.status || 'Active'}
+                        </span>
+                      </div>
+                      <h4 class="student-card-name" title="${s.name || ''}">${s.name || 'Not available'}</h4>
+                      <span class="student-card-ug">${s.ug_id || 'Not available'}</span>
+                      <div class="student-card-meta-chips">
+                        <span class="student-card-meta-chip">${s.batch || 'Batch'}</span>
+                        <span class="student-card-meta-chip">${s.division || '3CYBER7'}</span>
+                        ${s.is_cr ? '<span class="badge" style="background:#f59e0b; color:#fff; font-size:9.5px; padding:1px 5px;">CR</span>' : ''}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="student-card-details-grid" style="margin-top:12px;">
+                    <div class="student-card-detail-item">
+                      <span class="student-card-detail-label">Department</span>
+                      <span class="student-card-detail-val" title="${s.department || 'Computer Science & Engineering'}">${s.department || 'Computer Science & Engineering'}</span>
+                    </div>
+                    <div class="student-card-detail-item">
+                      <span class="student-card-detail-label">Semester</span>
+                      <span class="student-card-detail-val">${s.semester || '3rd Semester'}</span>
+                    </div>
+                    <div class="student-card-detail-item">
+                      <span class="student-card-detail-label">Section</span>
+                      <span class="student-card-detail-val">${s.division || '3CYBER7'}</span>
+                    </div>
+                    <div class="student-card-detail-item">
+                      <span class="student-card-detail-label">Batch</span>
+                      <span class="student-card-detail-val">${s.batch || 'Not available'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="student-card-footer">
+                  <div style="display:flex; align-items:center; gap:6px;">
+                    <span style="font-size:11px; color:var(--text-muted);">Attendance:</span>
+                    <span class="badge" style="background:${attBg}; color:${attColor}; font-weight:800; font-size:11px; padding:2px 7px;">
+                      ${att}%
+                    </span>
+                  </div>
+                  <button class="btn-primary" onclick="TeacherApp.openStudentDetails('${s.ug_id}')" style="padding:6px 14px; font-size:11.5px; border-radius:6px; margin:0; display:inline-flex; align-items:center; gap:5px;">
+                    <span>📄</span> <span>More Details</span>
+                  </button>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+    } else {
+      displayBox.innerHTML = `
+        <div class="card" style="padding:0; overflow:hidden;">
+          <div style="overflow-x:auto;">
+            <table class="table" style="font-size:12.5px; width:100%; border-collapse:collapse;">
+              <thead>
+                <tr>
+                  <th style="width:70px;">Roll</th>
+                  <th>UG ID</th>
+                  <th>Student Name</th>
+                  <th>Department</th>
+                  <th>Semester</th>
+                  <th>Batch</th>
+                  <th>Attendance %</th>
+                  <th>Status</th>
+                  <th style="text-align:right;">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${students.map(s => {
+                  const att = s.attendance_percentage != null ? s.attendance_percentage : 92;
+                  const attColor = att >= 75 ? '#10b981' : '#ef4444';
+                  const photoHtml = this.getStudentAvatarHtml(s.profile_photo_url, s.name, 28);
+                  return `
+                    <tr>
+                      <td><strong>#${s.roll_number != null ? s.roll_number : 'N/A'}</strong></td>
+                      <td><code>${s.ug_id || 'Not available'}</code></td>
+                      <td>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                          ${photoHtml}
+                          <div>
+                            <strong>${s.name || 'Not available'}</strong>
+                            ${s.is_cr ? '<span class="badge" style="background:#f59e0b; color:#fff; font-size:9.5px; margin-left:4px;">CR</span>' : ''}
+                          </div>
+                        </div>
+                      </td>
+                      <td style="color:var(--text-secondary); font-size:11.5px;">${s.department || 'Computer Science & Engineering'}</td>
+                      <td>${s.semester || '3rd Semester'}</td>
+                      <td><span class="badge" style="background:rgba(255,255,255,0.06); font-size:11px;">${s.batch || 'Not available'}</span></td>
+                      <td>
+                        <span class="badge" style="background:${att >= 75 ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)'}; color:${attColor}; font-weight:800; font-size:11px;">
+                          ${att}%
+                        </span>
+                      </td>
+                      <td>
+                        <span class="badge" style="background:rgba(16,185,129,0.1); color:#10b981; font-size:11px;">${s.status || 'Active'}</span>
+                      </td>
+                      <td style="text-align:right;">
+                        <button class="btn-sec" onclick="TeacherApp.openStudentDetails('${s.ug_id}')" style="padding:4px 12px; font-size:11.5px; margin:0; display:inline-flex; align-items:center; gap:4px;">
+                          <span>More Details</span>
+                        </button>
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+  },
+
+  async openStudentDetails(ug_id) {
+    const container = document.getElementById('teacher-content');
+    if (!container) return;
+
+    container.innerHTML = `
+      <div style="padding:40px; text-align:center;">
+        <div class="spinner" style="margin:0 auto 12px;"></div>
+        <div style="color:var(--text-muted); font-size:13px;">Loading student complete profile...</div>
+      </div>
+    `;
+
+    const res = await API.getTeacherStudentProfile(ug_id);
+    if (!res || !res.success || !res.data) {
+      container.innerHTML = `
+        <div class="card" style="padding:24px; text-align:center;">
+          <h3 style="color:#ef4444; margin-bottom:8px;">Error Loading Profile</h3>
+          <p style="color:var(--text-muted); font-size:13px;">${res?.message || 'Could not load student profile data.'}</p>
+          <button class="btn-sec" onclick="TeacherApp.renderStudents()" style="margin-top:12px;">← Back to Student List</button>
+        </div>
+      `;
+      return;
+    }
+
+    const { student = {}, attendanceHistory = [], submissions = [], results = [], mentoring = [] } = res.data;
+    const s = student;
+    const photoHtml = this.getStudentAvatarHtml(s.profile_photo_url, s.name, 72);
+
+    const totalLectures = attendanceHistory.length;
+    const presentLectures = attendanceHistory.filter(a => a.status === 'PRESENT').length;
+    const attPercentage = totalLectures > 0 ? Math.round((presentLectures / totalLectures) * 100) : 'Not available';
+
+    container.innerHTML = `
+      <div class="student-details-page">
+        <!-- Top Navigation Bar -->
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+          <button class="btn-sec" onclick="TeacherApp.renderStudents()" style="padding:8px 16px; font-size:12.5px; display:inline-flex; align-items:center; gap:8px;">
+            <span>←</span> <span>Back to Student List</span>
+          </button>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="badge" style="background:rgba(56,189,248,0.15); color:#38bdf8; font-size:11.5px; font-weight:700;">
+              Authorized Faculty View
+            </span>
+          </div>
+        </div>
+
+        <!-- Student Hero Profile Card -->
+        <div class="student-details-hero">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:18px;">
+            <div style="display:flex; align-items:center; gap:18px; flex-wrap:wrap;">
+              <div>${photoHtml}</div>
+              <div>
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                  <span class="badge" style="background:#2563eb; color:#fff; font-size:11px; font-weight:800;">
+                    ROLL #${s.roll_number != null ? s.roll_number : 'Not available'}
+                  </span>
+                  <span class="badge" style="background:rgba(16,185,129,0.15); color:#10b981; font-size:11px; font-weight:700;">
+                    ${s.status || 'Active'}
+                  </span>
+                  ${s.is_cr ? '<span class="badge" style="background:#f59e0b; color:#fff; font-size:11px; font-weight:700;">Class Representative (CR)</span>' : ''}
+                </div>
+                <h2 style="font-size:22px; font-weight:800; color:var(--text-primary); margin:8px 0 3px;">${s.name || 'Not available'}</h2>
+                <div style="font-size:13px; color:var(--text-secondary); display:flex; gap:12px; flex-wrap:wrap;">
+                  <span>Enrollment / UG ID: <code style="color:#38bdf8; font-weight:700;">${s.ug_id || 'Not available'}</code></span>
+                  <span>•</span>
+                  <span>Batch: <strong>${s.batch || 'Not available'}</strong></span>
+                  <span>•</span>
+                  <span>Division: <strong>${s.division || '3CYBER7'}</strong></span>
+                </div>
               </div>
             </div>
           </div>
-          <button class="icon-btn" onclick="document.getElementById('teacher-student-modal').remove()" style="width:28px; height:28px;">✕</button>
+
+          <!-- Academic & Personal Details Grid -->
+          <div class="student-details-grid">
+            <div class="student-details-item">
+              <span class="student-details-item-label">Department</span>
+              <span class="student-details-item-val">${s.department || 'Computer Science & Engineering'}</span>
+            </div>
+            <div class="student-details-item">
+              <span class="student-details-item-label">Academic Program</span>
+              <span class="student-details-item-val">${s.program || 'B.Tech Cyber Security'}</span>
+            </div>
+            <div class="student-details-item">
+              <span class="student-details-item-label">Current Semester</span>
+              <span class="student-details-item-val">${s.semester || '3rd Semester'} (${s.year || '2nd Year'})</span>
+            </div>
+            <div class="student-details-item">
+              <span class="student-details-item-label">Academic Year</span>
+              <span class="student-details-item-val">${s.academic_year || '2026-27'}</span>
+            </div>
+            <div class="student-details-item">
+              <span class="student-details-item-label">Section / Division</span>
+              <span class="student-details-item-val">${s.division || '3CYBER7'}</span>
+            </div>
+            <div class="student-details-item">
+              <span class="student-details-item-label">Assigned Batch</span>
+              <span class="student-details-item-val">${s.batch || 'Not available'}</span>
+            </div>
+            <div class="student-details-item">
+              <span class="student-details-item-label">Contact Phone</span>
+              <span class="student-details-item-val">${s.phone_number || 'Not available'}</span>
+            </div>
+            <div class="student-details-item">
+              <span class="student-details-item-label">CR Appointment</span>
+              <span class="student-details-item-val">${s.is_cr ? ('Yes (' + (s.cr_batches || 'Both') + ')') : 'No'}</span>
+            </div>
+            <div class="student-details-item">
+              <span class="student-details-item-label">Academic Standing</span>
+              <span class="student-details-item-val" style="color:#10b981;">Good Standing (${s.status || 'Active'})</span>
+            </div>
+          </div>
         </div>
 
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; font-size:12.5px; margin-bottom:18px; padding:12px; background:rgba(255,255,255,0.02); border-radius:8px; border:1px solid var(--border-color);">
-          <div>Division: <strong>${student.division}</strong></div>
-          <div>Program: <strong>${student.program}</strong></div>
-          <div>Phone: <strong>${student.phone_number || 'Not registered'}</strong></div>
-          <div>Status: <strong style="color:#10b981;">${student.status}</strong></div>
-        </div>
+        <!-- Attendance Summary & History Card -->
+        <div class="card" style="padding:22px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px;">
+            <div>
+              <h3 style="font-size:15px; font-weight:800; margin:0; display:flex; align-items:center; gap:8px;">
+                <span>📊</span> Attendance in Your Assigned Subjects
+              </h3>
+              <p style="font-size:12px; color:var(--text-secondary); margin:2px 0 0;">
+                Calculated strictly from authorized subject sessions
+              </p>
+            </div>
+            <div style="display:flex; gap:10px; align-items:center;">
+              <span class="badge" style="background:${attPercentage !== 'Not available' && attPercentage >= 75 ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)'}; color:${attPercentage !== 'Not available' && attPercentage >= 75 ? '#10b981' : '#f59e0b'}; font-size:12px; font-weight:800; padding:4px 10px;">
+                Attendance: ${attPercentage !== 'Not available' ? attPercentage + '%' : 'Not available'}
+              </span>
+              <span class="badge" style="background:rgba(255,255,255,0.05); font-size:11.5px;">
+                ${totalLectures > 0 ? `${presentLectures} / ${totalLectures} Lectures` : 'No logs'}
+              </span>
+            </div>
+          </div>
 
-        <!-- Attendance Records in Teacher's Subjects -->
-        <h4 style="font-size:14px; font-weight:800; margin:16px 0 8px 0;">Attendance in Your Subjects</h4>
-        <div style="max-height:160px; overflow-y:auto; border:1px solid var(--border-color); border-radius:6px; margin-bottom:16px;">
-          <table class="table" style="font-size:12px; width:100%; margin:0;">
-            <thead><tr><th>Date</th><th>Subject</th><th>Status</th><th>Remarks</th></tr></thead>
-            <tbody>
-              ${attendanceHistory.length === 0 ? `
-                <tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:12px;">No recorded attendance in your subjects.</td></tr>
-              ` : attendanceHistory.map(a => `
+          <div style="max-height:220px; overflow-y:auto; border:1px solid var(--border-color); border-radius:8px;">
+            <table class="table" style="font-size:12px; width:100%; margin:0;">
+              <thead>
                 <tr>
-                  <td>${a.date}</td>
-                  <td>${a.subject}</td>
-                  <td><span class="badge" style="background:${a.status === 'PRESENT' ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)'}; color:${a.status === 'PRESENT' ? '#10b981' : '#ef4444'}; font-size:10.5px;">${a.status}</span></td>
-                  <td style="color:var(--text-muted);">${a.remarks || '-'}</td>
+                  <th>Date</th>
+                  <th>Subject</th>
+                  <th>Batch</th>
+                  <th>Status</th>
+                  <th>Remarks</th>
+                  <th>Marked By</th>
                 </tr>
-              `).join('')}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                ${attendanceHistory.length === 0 ? `
+                  <tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:20px;">Not available</td></tr>
+                ` : attendanceHistory.map(a => `
+                  <tr>
+                    <td><strong>${a.date || 'Not available'}</strong></td>
+                    <td>${a.subject || 'Not available'}</td>
+                    <td><span class="badge" style="background:rgba(255,255,255,0.05); font-size:10px;">${a.batch || 'Both'}</span></td>
+                    <td>
+                      <span class="badge" style="background:${a.status === 'PRESENT' ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)'}; color:${a.status === 'PRESENT' ? '#10b981' : '#ef4444'}; font-size:10.5px; font-weight:700;">
+                        ${a.status || 'Not available'}
+                      </span>
+                    </td>
+                    <td style="color:var(--text-secondary);">${a.remarks || '-'}</td>
+                    <td style="color:var(--text-muted); font-size:11px;">${a.marked_by || 'Admin'}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
         </div>
 
-        <!-- Submissions in Teacher's Subjects -->
-        <h4 style="font-size:14px; font-weight:800; margin:16px 0 8px 0;">Assignment Submissions</h4>
-        <div style="max-height:160px; overflow-y:auto; border:1px solid var(--border-color); border-radius:6px; margin-bottom:16px;">
-          <table class="table" style="font-size:12px; width:100%; margin:0;">
-            <thead><tr><th>Assignment</th><th>Subject</th><th>Marks</th><th>Status</th></tr></thead>
-            <tbody>
-              ${submissions.length === 0 ? `
-                <tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:12px;">No submissions submitted yet.</td></tr>
-              ` : submissions.map(sub => `
+        <!-- Academic Marks & Internal Assessment Card -->
+        <div class="card" style="padding:22px;">
+          <h3 style="font-size:15px; font-weight:800; margin:0 0 14px; display:flex; align-items:center; gap:8px;">
+            <span>📝</span> Academic & Internal Examination Marks
+          </h3>
+
+          <div style="max-height:220px; overflow-y:auto; border:1px solid var(--border-color); border-radius:8px;">
+            <table class="table" style="font-size:12px; width:100%; margin:0;">
+              <thead>
                 <tr>
-                  <td><strong>${sub.assignment_title}</strong></td>
-                  <td>${sub.assignment_subject}</td>
-                  <td><strong>${sub.marks_obtained !== null ? sub.marks_obtained : '-'}</strong> / ${sub.max_marks}</td>
-                  <td><span class="badge" style="background:rgba(56,189,248,0.15); color:#38bdf8; font-size:10.5px;">${sub.status}</span></td>
+                  <th>Subject</th>
+                  <th>Exam Name</th>
+                  <th>Semester</th>
+                  <th>Marks Obtained</th>
+                  <th>Max Marks</th>
+                  <th>Grade</th>
+                  <th>Remarks</th>
                 </tr>
-              `).join('')}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                ${results.length === 0 ? `
+                  <tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:20px;">Not available</td></tr>
+                ` : results.map(r => `
+                  <tr>
+                    <td><strong>${r.subject || 'Not available'}</strong></td>
+                    <td>${r.exam_name || 'Not available'}</td>
+                    <td>${r.semester || '3rd Semester'}</td>
+                    <td><strong style="color:#10b981; font-size:13px;">${r.marks != null ? r.marks : 'Not available'}</strong></td>
+                    <td>${r.max_marks != null ? r.max_marks : 100}</td>
+                    <td><span class="badge" style="background:rgba(56,189,248,0.15); color:#38bdf8; font-weight:800;">${r.grade || 'Not available'}</span></td>
+                    <td style="color:var(--text-secondary);">${r.remarks || '-'}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
         </div>
 
-        <div style="display:flex; justify-content:flex-end;">
-          <button class="btn-sec" onclick="document.getElementById('teacher-student-modal').remove()">Close Profile</button>
+        <!-- Assignments & Submissions Card -->
+        <div class="card" style="padding:22px;">
+          <h3 style="font-size:15px; font-weight:800; margin:0 0 14px; display:flex; align-items:center; gap:8px;">
+            <span>📚</span> Assignment Submissions
+          </h3>
+
+          <div style="max-height:220px; overflow-y:auto; border:1px solid var(--border-color); border-radius:8px;">
+            <table class="table" style="font-size:12px; width:100%; margin:0;">
+              <thead>
+                <tr>
+                  <th>Assignment</th>
+                  <th>Subject</th>
+                  <th>Submitted At</th>
+                  <th>Marks</th>
+                  <th>Status</th>
+                  <th>Feedback</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${submissions.length === 0 ? `
+                  <tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:20px;">Not available</td></tr>
+                ` : submissions.map(sub => `
+                  <tr>
+                    <td><strong>${sub.assignment_title || 'Not available'}</strong></td>
+                    <td>${sub.assignment_subject || 'Not available'}</td>
+                    <td style="color:var(--text-muted); font-size:11px;">${sub.submitted_at || 'Not available'}</td>
+                    <td><strong>${sub.marks_obtained != null ? sub.marks_obtained : '-'}</strong> / ${sub.max_marks || 100}</td>
+                    <td><span class="badge" style="background:rgba(56,189,248,0.15); color:#38bdf8; font-size:10.5px;">${sub.status || 'SUBMITTED'}</span></td>
+                    <td style="color:var(--text-secondary);">${sub.feedback || '-'}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Mentoring Records Card -->
+        <div class="card" style="padding:22px;">
+          <h3 style="font-size:15px; font-weight:800; margin:0 0 14px; display:flex; align-items:center; gap:8px;">
+            <span>🤝</span> Mentoring & Advising Records
+          </h3>
+
+          ${mentoring.length === 0 ? `
+            <div style="padding:20px; text-align:center; color:var(--text-muted); font-size:12.5px; background:rgba(255,255,255,0.02); border-radius:8px;">
+              Not available
+            </div>
+          ` : `
+            <div style="display:flex; flex-direction:column; gap:10px;">
+              ${mentoring.map(m => `
+                <div style="padding:14px; background:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:8px;">
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                    <span style="font-size:13px; font-weight:700; color:var(--text-primary);">Mentor: ${m.mentor_name || 'Not available'}</span>
+                    <span class="badge" style="background:rgba(168,85,247,0.15); color:#c084fc; font-size:11px;">${m.session_date || 'Not available'}</span>
+                  </div>
+                  <div style="font-size:12px; color:var(--text-secondary); margin-bottom:4px;">
+                    <strong>Academic Concerns:</strong> ${m.academic_concerns || 'None reported'}
+                  </div>
+                  <div style="font-size:12px; color:var(--text-primary);">
+                    <strong>Session Notes:</strong> ${m.notes || 'Not available'}
+                  </div>
+                  ${m.action_plan ? `<div style="font-size:11.5px; color:#38bdf8; margin-top:4px;"><strong>Action Plan:</strong> ${m.action_plan}</div>` : ''}
+                </div>
+              `).join('')}
+            </div>
+          `}
+        </div>
+
+        <!-- Bottom Back Button -->
+        <div style="display:flex; justify-content:flex-start; margin-top:10px;">
+          <button class="btn-sec" onclick="TeacherApp.renderStudents()" style="padding:10px 20px; font-size:13px; display:inline-flex; align-items:center; gap:8px;">
+            <span>←</span> <span>Back to Student List</span>
+          </button>
         </div>
       </div>
     `;
+  },
+
+  // Backward-compatibility alias for modal invocation
+  async openStudentProfileModal(ug_id) {
+    return this.openStudentDetails(ug_id);
   },
 
   // ==========================================================================

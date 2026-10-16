@@ -65,7 +65,13 @@ async function getDashboard(req, res) {
        LEFT JOIN teachers tc ON (t.teacher_id = tc.teacher_id)
        LEFT JOIN timetable_overrides o ON (o.timetable_id = t.id AND o.status = 'ACTIVE' AND o.date = CURRENT_DATE)
        WHERE t.day = ? AND t.active = 1
-       ORDER BY t.start_time ASC`,
+       ORDER BY
+         CASE
+           WHEN CAST(SUBSTR(t.start_time, 1, 2) AS INTEGER) < 8
+           THEN CAST(SUBSTR(t.start_time, 1, 2) AS INTEGER) + 12
+           ELSE CAST(SUBSTR(t.start_time, 1, 2) AS INTEGER)
+         END ASC,
+         SUBSTR(t.start_time, 4, 2) ASC`,
       [todayDay]
     );
 
@@ -103,10 +109,16 @@ async function getDashboard(req, res) {
 
     // 4. Pending Approvals & Leave Requests
     const pendingLeaves = await db.query(
-      "SELECT * FROM leave_requests WHERE status = 'PENDING' ORDER BY created_at DESC LIMIT 5"
+      "SELECT * FROM leave_requests WHERE status = 'PENDING' ORDER BY created_at DESC LIMIT 10"
     );
     const pendingApprovals = await db.query(
-      "SELECT * FROM department_approvals WHERE status = 'PENDING' ORDER BY created_at DESC LIMIT 5"
+      "SELECT * FROM department_approvals WHERE status = 'PENDING' ORDER BY created_at DESC LIMIT 10"
+    );
+    const pendingLeavesCountRow = await db.get(
+      "SELECT COUNT(*) as count FROM leave_requests WHERE status = 'PENDING'"
+    );
+    const pendingApprovalsCountRow = await db.get(
+      "SELECT COUNT(*) as count FROM department_approvals WHERE status = 'PENDING'"
     );
 
     // 5. Faculty Workload Highlights
@@ -159,8 +171,8 @@ async function getDashboard(req, res) {
         absentToday,
         leaveToday,
         attendancePercentageToday,
-        pendingLeavesCount: pendingLeaves.length,
-        pendingApprovalsCount: pendingApprovals.length,
+        pendingLeavesCount: pendingLeavesCountRow ? pendingLeavesCountRow.count : pendingLeaves.length,
+        pendingApprovalsCount: pendingApprovalsCountRow ? pendingApprovalsCountRow.count : pendingApprovals.length,
         activeExamsCount: upcomingExams.length
       },
       todayDay,
@@ -550,8 +562,11 @@ async function getStudents(req, res) {
         ? Math.round((totalPresent / totalSessions) * 100)
         : 88; // Default good standing if no recorded absences
 
+      const safe = { ...s };
+      delete safe.password_hash;
+
       return {
-        ...s,
+        ...safe,
         total_present: totalPresent,
         total_sessions: totalSessions,
         attendance_percentage: attendancePercent
@@ -586,25 +601,42 @@ async function getStudentById(req, res) {
       return res.status(404).json({ success: false, message: 'Student record not found.' });
     }
 
+    delete student.password_hash;
+
     // Results / Internal Marks
     const results = await db.query(
-      "SELECT * FROM results WHERE ug_id = ? ORDER BY subject ASC",
+      "SELECT * FROM results WHERE UPPER(ug_id) = UPPER(?) ORDER BY subject ASC",
       [student.ug_id]
     );
 
     // Recent Attendance
     const attendanceManual = await db.query(
-      "SELECT * FROM attendance_manual WHERE ug_id = ? ORDER BY date DESC LIMIT 15",
+      "SELECT * FROM attendance_manual WHERE UPPER(ug_id) = UPPER(?) ORDER BY date DESC LIMIT 20",
       [student.ug_id]
     );
     const attendanceScans = await db.query(
-      "SELECT * FROM attendance_records WHERE ug_id = ? ORDER BY date DESC LIMIT 15",
+      "SELECT * FROM attendance_records WHERE UPPER(ug_id) = UPPER(?) ORDER BY date DESC LIMIT 20",
       [student.ug_id]
     );
 
     // Mentoring notes
     const mentoring = await db.query(
-      "SELECT * FROM mentoring_records WHERE student_ug_id = ? ORDER BY session_date DESC",
+      "SELECT * FROM mentoring_records WHERE UPPER(student_ug_id) = UPPER(?) ORDER BY session_date DESC",
+      [student.ug_id]
+    );
+
+    // Assignment Submissions
+    const submissions = await db.query(`
+      SELECT s.*, a.title as assignment_title, a.subject as assignment_subject, a.max_marks
+      FROM assignment_submissions s
+      JOIN assignments a ON s.assignment_id = a.id
+      WHERE UPPER(s.ug_id) = UPPER(?)
+      ORDER BY s.submitted_at DESC
+    `, [student.ug_id]);
+
+    // Student Leave Requests
+    const leaves = await db.query(
+      "SELECT * FROM leave_requests WHERE UPPER(applicant_id) = UPPER(?) ORDER BY created_at DESC",
       [student.ug_id]
     );
 
@@ -614,7 +646,9 @@ async function getStudentById(req, res) {
       results,
       attendanceManual,
       attendanceScans,
-      mentoring
+      mentoring,
+      submissions,
+      leaves
     });
   } catch (err) {
     console.error('[HOD] getStudentById error:', err);
@@ -744,6 +778,8 @@ async function getTimetable(req, res) {
     let sql = `
       SELECT t.*,
              COALESCE(tc.name, t.teacher) as teacher_name,
+             COALESCE(o.new_room, t.room) as effective_room,
+             COALESCE(o.new_teacher, t.teacher) as effective_teacher,
              o.override_type, o.new_room, o.new_teacher, o.new_start_time, o.new_end_time
       FROM timetable t
       LEFT JOIN teachers tc ON (t.teacher_id = tc.teacher_id)
@@ -769,7 +805,22 @@ async function getTimetable(req, res) {
       params.push(semester);
     }
 
-    sql += " ORDER BY CASE t.day WHEN 'Monday' THEN 1 WHEN 'Tuesday' THEN 2 WHEN 'Wednesday' THEN 3 WHEN 'Thursday' THEN 4 WHEN 'Friday' THEN 5 WHEN 'Saturday' THEN 6 ELSE 7 END, t.start_time ASC";
+    sql += ` ORDER BY
+      CASE t.day
+        WHEN 'Monday' THEN 1
+        WHEN 'Tuesday' THEN 2
+        WHEN 'Wednesday' THEN 3
+        WHEN 'Thursday' THEN 4
+        WHEN 'Friday' THEN 5
+        WHEN 'Saturday' THEN 6
+        ELSE 7
+      END,
+      CASE
+        WHEN CAST(SUBSTR(t.start_time, 1, 2) AS INTEGER) < 8
+        THEN CAST(SUBSTR(t.start_time, 1, 2) AS INTEGER) + 12
+        ELSE CAST(SUBSTR(t.start_time, 1, 2) AS INTEGER)
+      END ASC,
+      SUBSTR(t.start_time, 4, 2) ASC`;
 
     const timetable = await db.query(sql, params);
     return res.json({ success: true, timetable });
@@ -1031,8 +1082,10 @@ async function reviewInternalMarks(req, res) {
         decision_role = 'HOD',
         decision_remarks = ?,
         decision_at = CURRENT_TIMESTAMP
-      WHERE request_type = 'INTERNAL_MARKS' AND (description LIKE ? OR title LIKE ?)
-    `, [newStatus, reviewer, remarks || '', `%${subject}%`, `%${subject}%`]);
+      WHERE request_type = 'INTERNAL_MARKS' AND (
+        description LIKE ? OR title LIKE ? OR reference_payload LIKE ? OR reference_id LIKE ? OR ? = 'ALL'
+      )
+    `, [newStatus, reviewer, remarks || '', `%${subject}%`, `%${subject}%`, `%${subject}%`, `%${subject}%`, subject]);
 
     return res.json({
       success: true,
@@ -1216,20 +1269,23 @@ async function getLeaves(req, res) {
     let sql = "SELECT * FROM leave_requests WHERE 1=1";
     const params = [];
 
-    if (status && status !== 'All') {
-      sql += " AND status = ?";
-      params.push(status.toUpperCase());
+    if (status && status.toUpperCase() !== 'ALL' && status.trim() !== '') {
+      sql += " AND UPPER(status) = ?";
+      params.push(status.trim().toUpperCase());
     }
 
-    if (type && type !== 'All') {
-      sql += " AND applicant_type = ?";
-      params.push(type.toUpperCase());
+    if (type && type.toUpperCase() !== 'ALL' && type.trim() !== '') {
+      sql += " AND UPPER(applicant_type) = ?";
+      params.push(type.trim().toUpperCase());
     }
 
     sql += " ORDER BY created_at DESC";
     const leaves = await db.query(sql, params);
 
-    return res.json({ success: true, leaves });
+    const pendingRow = await db.get("SELECT COUNT(*) as count FROM leave_requests WHERE status = 'PENDING'");
+    const pendingCount = pendingRow ? pendingRow.count : 0;
+
+    return res.json({ success: true, leaves, pendingCount });
   } catch (err) {
     console.error('[HOD] getLeaves error:', err);
     return res.status(500).json({ success: false, message: 'Failed to retrieve leave requests.' });
@@ -1481,15 +1537,18 @@ async function getApprovalsQueue(req, res) {
     let sql = "SELECT * FROM department_approvals WHERE 1=1";
     const params = [];
 
-    if (status && status !== 'All') {
-      sql += " AND status = ?";
-      params.push(status.toUpperCase());
+    if (status && status.toUpperCase() !== 'ALL' && status.trim() !== '') {
+      sql += " AND UPPER(status) = ?";
+      params.push(status.trim().toUpperCase());
     }
 
     sql += " ORDER BY created_at DESC";
     const approvals = await db.query(sql, params);
 
-    return res.json({ success: true, approvals });
+    const pendingRow = await db.get("SELECT COUNT(*) as count FROM department_approvals WHERE status = 'PENDING'");
+    const pendingCount = pendingRow ? pendingRow.count : 0;
+
+    return res.json({ success: true, approvals, pendingCount });
   } catch (err) {
     console.error('[HOD] getApprovalsQueue error:', err);
     return res.status(500).json({ success: false, message: 'Failed to fetch approvals queue.' });
@@ -1536,16 +1595,37 @@ async function processApproval(req, res) {
           decision_role = 'HOD',
           decision_remarks = ?,
           decision_at = CURRENT_TIMESTAMP
-        WHERE id = ?
-      `, [decisionStatus, reviewer, remarks || '', approval.reference_id]);
+        WHERE id = ? OR id = ?
+      `, [decisionStatus, reviewer, remarks || '', approval.reference_id, parseInt(approval.reference_id, 10) || 0]);
     } else if (approval.request_type === 'INTERNAL_MARKS') {
       await db.run(`
         UPDATE results SET
           status = ?,
           approved_by = ?,
           approval_remarks = ?
-        WHERE status = 'SUBMITTED'
+        WHERE status = 'SUBMITTED' OR status = 'PENDING' OR status IS NULL
       `, [decisionStatus, reviewer, remarks || '']);
+    } else if (approval.request_type === 'ATTENDANCE_CORRECTION' && decisionStatus === 'APPROVED' && approval.reference_payload) {
+      try {
+        const payload = typeof approval.reference_payload === 'string' ? JSON.parse(approval.reference_payload) : approval.reference_payload;
+        if (payload && payload.ug_id && payload.date && payload.subject) {
+          const student = await db.get("SELECT * FROM students WHERE ug_id = ?", [payload.ug_id]);
+          await db.run(`
+            INSERT INTO attendance_manual (date, subject, student_id, student_name, roll_number, status, marked_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+          `, [
+            payload.date,
+            payload.subject,
+            payload.ug_id,
+            student ? student.name : (approval.requester_name || 'Student'),
+            student ? (student.roll_number || 'N/A') : 'N/A',
+            payload.requested_status || 'PRESENT',
+            reviewer
+          ]);
+        }
+      } catch (payloadErr) {
+        console.warn('[HOD] Attendance correction parse warning:', payloadErr);
+      }
     }
 
     return res.json({

@@ -270,6 +270,17 @@ const API = {
     }
   },
 
+  logout() {
+    this.setToken(null);
+    this.setUser(null);
+    try {
+      localStorage.removeItem('pu_auth_token');
+      localStorage.removeItem('pu_user');
+      localStorage.removeItem('mgi_cache_hod_dashboard');
+      localStorage.removeItem('mgi_cache_hod_timetable');
+    } catch (e) {}
+  },
+
   isOfflineSession() {
     const token = this.getToken();
     return !token || token.startsWith('mgi_offline_token_');
@@ -1856,11 +1867,23 @@ const API = {
   },
 
   // Module 6: Timetable Management
+  _getSortMinutes(timeStr) {
+    if (!timeStr) return 0;
+    const parts = String(timeStr).trim().split(':');
+    let h = parseInt(parts[0], 10) || 0;
+    const m = parseInt(parts[1], 10) || 0;
+    if (h < 8) h += 12; // 01:15 -> 13:15
+    return h * 60 + m;
+  },
+
   async getHodTimetable(params = {}) {
     try {
       const q = new URLSearchParams(params).toString();
       const res = await this.request(`/api/hod/timetable${q ? '?' + q : ''}`);
       if (res && res.success) {
+        if (Array.isArray(res.timetable)) {
+          res.timetable.sort((a, b) => this._getSortMinutes(a.start_time) - this._getSortMinutes(b.start_time));
+        }
         this.cacheItem('hod_timetable', res);
         return res;
       }
@@ -1870,40 +1893,71 @@ const API = {
     if (params.day && params.day !== 'All') {
       slots = slots.filter(s => s.day.toLowerCase() === params.day.toLowerCase());
     }
+    slots.sort((a, b) => this._getSortMinutes(a.start_time) - this._getSortMinutes(b.start_time));
     return { success: true, timetable: slots, isOffline: true };
   },
 
   async createHodTimetableEntry(slotData) {
+    try { localStorage.removeItem('mgi_cache_hod_timetable'); } catch (e) {}
     try {
       const res = await this.request('/api/hod/timetable', {
         method: 'POST',
         body: JSON.stringify(slotData)
       });
-      if (res && res.success) return res;
+      if (res && res.success) {
+        try { localStorage.removeItem('mgi_cache_hod_timetable'); } catch (e) {}
+        return res;
+      }
     } catch (e) {}
 
     return { success: true, message: 'Timetable entry added successfully.', isOffline: true };
   },
 
   async updateHodTimetableEntry(id, slotData) {
+    try { localStorage.removeItem('mgi_cache_hod_timetable'); } catch (e) {}
     try {
       const res = await this.request(`/api/hod/timetable/${id}`, {
         method: 'PUT',
         body: JSON.stringify(slotData)
       });
-      if (res && res.success) return res;
+      if (res && res.success) {
+        try { localStorage.removeItem('mgi_cache_hod_timetable'); } catch (e) {}
+        return res;
+      }
     } catch (e) {}
 
     return { success: true, message: 'Timetable entry updated successfully.', isOffline: true };
   },
 
   async deleteHodTimetableEntry(id) {
+    try { localStorage.removeItem('mgi_cache_hod_timetable'); } catch (e) {}
     try {
       const res = await this.request(`/api/hod/timetable/${id}`, { method: 'DELETE' });
-      if (res && res.success) return res;
+      if (res && res.success) {
+        try { localStorage.removeItem('mgi_cache_hod_timetable'); } catch (e) {}
+        return res;
+      }
     } catch (e) {}
 
     return { success: true, message: 'Timetable entry removed successfully.', isOffline: true };
+  },
+
+  async createTimetableRoomChange(overrideData) {
+    try { localStorage.removeItem('mgi_cache_hod_timetable'); } catch (e) {}
+    try { localStorage.removeItem('mgi_cache_hod_dashboard'); } catch (e) {}
+    try {
+      const res = await this.request('/api/timetable/room-change', {
+        method: 'POST',
+        body: JSON.stringify(overrideData)
+      });
+      if (res && res.success) {
+        try { localStorage.removeItem('mgi_cache_hod_timetable'); } catch (e) {}
+        try { localStorage.removeItem('mgi_cache_hod_dashboard'); } catch (e) {}
+        return res;
+      }
+    } catch (e) {}
+
+    return { success: true, message: 'Classroom relocation recorded successfully.', isOffline: true };
   },
 
   // Module 7: Attendance Management
@@ -1959,12 +2013,34 @@ const API = {
   },
 
   async reviewHodInternalMarks(reviewData) {
+    const action = (reviewData.action || 'APPROVED').toUpperCase();
+    const remarks = reviewData.remarks || '';
+    const subject = reviewData.subject || '';
+
+    const store = this._getHodLocalStore();
+    store.approvals.forEach(a => {
+      if (a.request_type === 'INTERNAL_MARKS') {
+        if (!subject || subject === 'ALL' || (a.title && a.title.includes(subject)) || (a.description && a.description.includes(subject)) || (a.reference_payload && a.reference_payload.includes(subject))) {
+          a.status = action === 'APPROVE' ? 'APPROVED' : (action === 'REJECT' ? 'REJECTED' : 'RETURNED');
+          a.decision_remarks = remarks;
+          a.decision_by = 'Head of Department';
+          a.decision_at = new Date().toISOString();
+        }
+      }
+    });
+    this._saveHodLocalStore(store);
+
+    try { localStorage.removeItem('mgi_cache_hod_dashboard'); } catch (e) {}
+
     try {
       const res = await this.request('/api/hod/internal-marks/review', {
         method: 'POST',
         body: JSON.stringify(reviewData)
       });
-      if (res && res.success) return res;
+      if (res && res.success) {
+        try { localStorage.removeItem('mgi_cache_hod_dashboard'); } catch (e) {}
+        return res;
+      }
     } catch (e) {}
 
     return { success: true, message: 'Internal marks batch status updated successfully.', isOffline: true };
@@ -2077,27 +2153,54 @@ const API = {
     } catch (e) {}
 
     const store = this._getHodLocalStore();
-    return { success: true, leaves: store.leaves, isOffline: true };
+    let leaves = store.leaves || [];
+    const pendingCount = leaves.filter(l => (l.status || '').toUpperCase() === 'PENDING').length;
+    if (params.status && params.status.toUpperCase() !== 'ALL' && params.status.trim() !== '') {
+      leaves = leaves.filter(l => (l.status || '').toUpperCase() === params.status.trim().toUpperCase());
+    }
+    if (params.type && params.type.toUpperCase() !== 'ALL' && params.type.trim() !== '') {
+      leaves = leaves.filter(l => (l.applicant_type || '').toUpperCase() === params.type.trim().toUpperCase());
+    }
+    return { success: true, leaves, pendingCount, isOffline: true };
   },
 
   async reviewHodLeave(id, reviewData) {
+    const action = (reviewData.action || reviewData.status || 'APPROVED').toUpperCase();
+    const remarks = reviewData.remarks || '';
     const store = this._getHodLocalStore();
     const idx = store.leaves.findIndex(l => l.id == id);
     if (idx !== -1) {
-      store.leaves[idx].status = reviewData.status || 'APPROVED';
-      store.leaves[idx].review_notes = reviewData.remarks || '';
-      this._saveHodLocalStore(store);
+      store.leaves[idx].status = action;
+      store.leaves[idx].decision_remarks = remarks;
+      store.leaves[idx].review_notes = remarks;
+      store.leaves[idx].decision_by = 'Head of Department';
+      store.leaves[idx].decision_at = new Date().toISOString();
     }
+
+    // Also update any matching entry in store.approvals
+    const appIdx = store.approvals.findIndex(a => a.request_type === 'LEAVE_REQUEST' && (a.reference_id == id || a.reference_id == String(id)));
+    if (appIdx !== -1) {
+      store.approvals[appIdx].status = action;
+      store.approvals[appIdx].decision_remarks = remarks;
+      store.approvals[appIdx].decision_by = 'Head of Department';
+      store.approvals[appIdx].decision_at = new Date().toISOString();
+    }
+    this._saveHodLocalStore(store);
+
+    try { localStorage.removeItem('mgi_cache_hod_dashboard'); } catch (e) {}
 
     try {
       const res = await this.request(`/api/hod/leaves/${id}/review`, {
         method: 'POST',
         body: JSON.stringify(reviewData)
       });
-      if (res && res.success) return res;
+      if (res && res.success) {
+        try { localStorage.removeItem('mgi_cache_hod_dashboard'); } catch (e) {}
+        return res;
+      }
     } catch (e) {}
 
-    return { success: true, message: `Leave ${reviewData.status.toLowerCase()} successfully.`, isOffline: true };
+    return { success: true, message: `Leave ${action.toLowerCase()} successfully.`, isOffline: true };
   },
 
   // Module 13: Student Mentoring
@@ -2160,26 +2263,51 @@ const API = {
     } catch (e) {}
 
     const store = this._getHodLocalStore();
-    return { success: true, approvals: store.approvals, isOffline: true };
+    let approvals = store.approvals || [];
+    const pendingCount = approvals.filter(a => (a.status || '').toUpperCase() === 'PENDING').length;
+    if (params.status && params.status.toUpperCase() !== 'ALL' && params.status.trim() !== '') {
+      approvals = approvals.filter(a => (a.status || '').toUpperCase() === params.status.trim().toUpperCase());
+    }
+    return { success: true, approvals, pendingCount, isOffline: true };
   },
 
   async processHodApproval(id, processData) {
+    const action = (processData.action || processData.status || 'APPROVED').toUpperCase();
+    const remarks = processData.remarks || '';
     const store = this._getHodLocalStore();
     const idx = store.approvals.findIndex(a => a.id == id);
     if (idx !== -1) {
-      store.approvals[idx].status = processData.status || 'APPROVED';
+      store.approvals[idx].status = action;
+      store.approvals[idx].decision_remarks = remarks;
+      store.approvals[idx].decision_by = 'Head of Department';
+      store.approvals[idx].decision_at = new Date().toISOString();
+
+      // If this was a leave request, also sync store.leaves
+      if (store.approvals[idx].request_type === 'LEAVE_REQUEST' && store.approvals[idx].reference_id) {
+        const leaveIdx = store.leaves.findIndex(l => l.id == store.approvals[idx].reference_id || l.id == String(store.approvals[idx].reference_id));
+        if (leaveIdx !== -1) {
+          store.leaves[leaveIdx].status = action;
+          store.leaves[leaveIdx].decision_remarks = remarks;
+          store.leaves[leaveIdx].review_notes = remarks;
+        }
+      }
       this._saveHodLocalStore(store);
     }
+
+    try { localStorage.removeItem('mgi_cache_hod_dashboard'); } catch (e) {}
 
     try {
       const res = await this.request(`/api/hod/approvals/${id}/process`, {
         method: 'POST',
         body: JSON.stringify(processData)
       });
-      if (res && res.success) return res;
+      if (res && res.success) {
+        try { localStorage.removeItem('mgi_cache_hod_dashboard'); } catch (e) {}
+        return res;
+      }
     } catch (e) {}
 
-    return { success: true, message: `Approval ticket ${processData.status.toLowerCase()} successfully.`, isOffline: true };
+    return { success: true, message: `Approval ticket marked as ${action.toLowerCase()} successfully.`, isOffline: true };
   }
 };
 

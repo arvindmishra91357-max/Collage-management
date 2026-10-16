@@ -574,7 +574,7 @@ async function createRoomChangeOverride(req, res) {
     }
 
     const user = req.user;
-    const isAdmin = user.role === 'ADMIN';
+    const isAdmin = user.role === 'ADMIN' || user.role === 'HOD';
 
     // Target batch resolution
     let targetBatch = batch || slot.batch || 'Both';

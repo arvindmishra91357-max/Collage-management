@@ -43,6 +43,7 @@ const HodApp = {
   currentSection: 'dashboard',
   sectionHistory: ['dashboard'],
   pendingApprovalsCount: 0,
+  pendingLeavesCount: 0,
   refreshTimer: null,
 
   async init(user, forceSection = null) {
@@ -91,6 +92,7 @@ const HodApp = {
 
     this.renderLayout();
     this.bindEvents();
+    await this.refreshPendingCounters();
     await this.switchSection(initialSection, null, false);
     this.initRealtimeSync();
   },
@@ -174,9 +176,12 @@ const HodApp = {
               <span style="font-size:15px; width:22px; text-align:center; flex-shrink:0;">⚖️</span>
               <span style="font-size:12.5px; font-weight:600;">Faculty Workload</span>
             </button>
-            <button class="sidebar-item ${this.currentSection === 'leaves' ? 'active' : ''}" data-section="leaves" onclick="HodApp.switchSection('leaves', event)">
+            <button class="sidebar-item ${this.currentSection === 'leaves' ? 'active' : ''}" data-section="leaves" onclick="HodApp.switchSection('leaves', event)" style="position:relative; display:flex; align-items:center; width:100%;">
               <span style="font-size:15px; width:22px; text-align:center; flex-shrink:0;">✉️</span>
-              <span style="font-size:12.5px; font-weight:600;">Leave Approvals</span>
+              <span style="flex:1; font-size:12.5px; font-weight:600; text-align:left;">Leave Approvals</span>
+              <span id="hod-nav-leaves-badge" class="badge" style="background:#f59e0b; color:#fff; font-size:10px; padding:2px 6px; border-radius:10px; margin-left:auto; display:${this.pendingLeavesCount > 0 ? 'inline-block' : 'none'};">
+                ${this.pendingLeavesCount || 0}
+              </span>
             </button>
             <button class="sidebar-item ${this.currentSection === 'mentoring' ? 'active' : ''}" data-section="mentoring" onclick="HodApp.switchSection('mentoring', event)">
               <span style="font-size:15px; width:22px; text-align:center; flex-shrink:0;">🤝</span>
@@ -192,7 +197,7 @@ const HodApp = {
               <span style="font-size:15px; width:22px; text-align:center; flex-shrink:0;">⚡</span>
               <span style="flex:1; font-size:12.5px; font-weight:600; text-align:left;">HOD Approvals</span>
               <span id="hod-nav-pending-badge" class="badge" style="background:#ef4444; color:#fff; font-size:10px; padding:2px 6px; border-radius:10px; margin-left:auto; display:${this.pendingApprovalsCount > 0 ? 'inline-block' : 'none'};">
-                ${this.pendingApprovalsCount}
+                ${this.pendingApprovalsCount || 0}
               </span>
             </button>
           </div>
@@ -202,7 +207,7 @@ const HodApp = {
             <button class="btn-sec" onclick="HodApp.toggleTheme()" style="padding:6px 10px; font-size:11.5px; display:inline-flex; align-items:center; gap:5px; border-radius:8px;">
               <span>🌓</span> <span>Theme</span>
             </button>
-            <button class="btn-sec" onclick="HodApp.logout()" style="padding:6px 10px; font-size:11.5px; color:#ef4444; border-color:rgba(239,68,68,0.3); display:inline-flex; align-items:center; gap:5px; border-radius:8px;">
+            <button class="btn-sec" onclick="HodApp.logout()" style="padding:6px 10px; font-size:11.5px; color:#ef4444; border-color:rgba(239,68,68,0.3); display:inline-flex; align-items:center; gap:5px; border-radius:8px; cursor:pointer;" title="Logout from HOD Portal">
               <span>🚪</span> <span>Logout</span>
             </button>
           </div>
@@ -230,7 +235,7 @@ const HodApp = {
             </div>
 
             <!-- Topbar Quick Actions -->
-            <div style="display:flex; align-items:center; gap:10px;">
+            <div style="display:flex; align-items:center; gap:8px;">
               <span class="server-status-pill" style="font-size:11.5px; padding:4px 10px; display:inline-flex; align-items:center; gap:6px;">
                 <span>🏛️</span> <span class="hide-mobile">CSE Department Active</span>
               </span>
@@ -238,12 +243,16 @@ const HodApp = {
               <button class="icon-btn" onclick="HodApp.switchSection('approvals')" style="position:relative; width:36px; height:36px; border-radius:10px; background:rgba(255,255,255,0.06); border:1px solid var(--border-color); cursor:pointer; display:inline-flex; align-items:center; justify-content:center;" title="View Pending Approvals">
                 <span>⚡</span>
                 <span id="hod-top-pending-badge" style="position:absolute; top:-4px; right:-4px; background:#ef4444; color:#fff; font-size:10px; font-weight:800; width:18px; height:18px; border-radius:50%; display:${this.pendingApprovalsCount > 0 ? 'flex' : 'none'}; align-items:center; justify-content:center; border:2px solid var(--bg-main);">
-                  ${this.pendingApprovalsCount}
+                  ${this.pendingApprovalsCount || 0}
                 </span>
               </button>
 
               <button class="btn-sec hide-mobile" onclick="HodApp.switchSection('profile')" style="padding:6px 12px; font-size:12px; display:inline-flex; align-items:center; gap:6px; border-radius:8px;">
                 <span>👤</span> <span>Profile</span>
+              </button>
+
+              <button class="btn-sec" onclick="HodApp.logout()" style="padding:6px 11px; font-size:12px; color:#ef4444; border-color:rgba(239,68,68,0.35); background:rgba(239,68,68,0.08); display:inline-flex; align-items:center; gap:5px; border-radius:8px; cursor:pointer;" title="Logout from HOD Portal">
+                <span>🚪</span> <span class="hide-mobile">Logout</span>
               </button>
             </div>
           </header>
@@ -498,17 +507,59 @@ const HodApp = {
     }
   },
 
-  updatePendingBadge(count) {
-    this.pendingApprovalsCount = count || 0;
-    const navBadge = document.getElementById('hod-nav-pending-badge');
-    const topBadge = document.getElementById('hod-top-pending-badge');
-    if (navBadge) {
-      navBadge.textContent = count;
-      navBadge.style.display = count > 0 ? 'inline-block' : 'none';
+  updatePendingBadges(approvalsCount, leavesCount) {
+    if (approvalsCount !== undefined) {
+      this.pendingApprovalsCount = Number(approvalsCount) || 0;
+      this.pendingApprovalsOnlyCount = this.pendingApprovalsCount;
     }
-    if (topBadge) {
-      topBadge.textContent = count;
-      topBadge.style.display = count > 0 ? 'flex' : 'none';
+    if (leavesCount !== undefined) {
+      this.pendingLeavesCount = Number(leavesCount) || 0;
+      this.pendingLeavesOnlyCount = this.pendingLeavesCount;
+    }
+
+    const navAppBadge = document.getElementById('hod-nav-pending-badge');
+    const topAppBadge = document.getElementById('hod-top-pending-badge');
+    if (navAppBadge) {
+      navAppBadge.textContent = this.pendingApprovalsCount;
+      navAppBadge.style.display = this.pendingApprovalsCount > 0 ? 'inline-block' : 'none';
+    }
+    if (topAppBadge) {
+      topAppBadge.textContent = this.pendingApprovalsCount;
+      topAppBadge.style.display = this.pendingApprovalsCount > 0 ? 'flex' : 'none';
+    }
+
+    const navLeaveBadge = document.getElementById('hod-nav-leaves-badge');
+    if (navLeaveBadge) {
+      navLeaveBadge.textContent = this.pendingLeavesCount;
+      navLeaveBadge.style.display = this.pendingLeavesCount > 0 ? 'inline-block' : 'none';
+    }
+  },
+
+  updatePendingBadge(count) {
+    // Specifically updates approvals badge ONLY to guarantee counts are never conflated
+    this.updatePendingBadges(count, undefined);
+  },
+
+  async refreshPendingCounters() {
+    try {
+      try { localStorage.removeItem('mgi_cache_hod_dashboard'); } catch (e) {}
+      const [appRes, leaveRes] = await Promise.all([
+        API.getHodApprovals({ status: 'PENDING' }),
+        API.getHodLeaves({ status: 'PENDING' })
+      ]);
+      const pendingApprovals = (appRes && Array.isArray(appRes.approvals)) 
+        ? appRes.approvals.filter(a => a.status === 'PENDING') 
+        : [];
+      const pendingLeaves = (leaveRes && Array.isArray(leaveRes.leaves)) 
+        ? leaveRes.leaves.filter(l => l.status === 'PENDING') 
+        : [];
+      const approvalsCount = (appRes && appRes.pendingCount !== undefined) ? appRes.pendingCount : pendingApprovals.length;
+      const leavesCount = (leaveRes && leaveRes.pendingCount !== undefined) ? leaveRes.pendingCount : pendingLeaves.length;
+      this.updatePendingBadges(approvalsCount, leavesCount);
+      return { total: approvalsCount, pendingApprovalsCount: approvalsCount, pendingLeavesCount: leavesCount };
+    } catch (e) {
+      console.warn('[HodApp] refreshPendingCounters error:', e);
+      return { total: this.pendingApprovalsCount, pendingApprovalsCount: this.pendingApprovalsCount, pendingLeavesCount: this.pendingLeavesCount || 0 };
     }
   },
 
@@ -531,11 +582,40 @@ const HodApp = {
 
   logout() {
     if (confirm('Are you sure you want to log out from HOD Portal?')) {
-      API.logout();
-      if (window.App && typeof window.App.showAuth === 'function') {
+      if (this.refreshTimer) {
+        clearInterval(this.refreshTimer);
+        this.refreshTimer = null;
+      }
+      try {
+        if (typeof API.logout === 'function') {
+          API.logout();
+        } else {
+          API.setToken(null);
+          API.setUser(null);
+        }
+      } catch (e) {}
+
+      try {
+        localStorage.removeItem('pu_auth_token');
+        localStorage.removeItem('pu_user');
+        localStorage.removeItem('mgi_cache_hod_dashboard');
+        localStorage.removeItem('mgi_cache_hod_timetable');
+      } catch (e) {}
+
+      this.currentUser = null;
+
+      try {
+        history.replaceState(null, '', window.location.pathname);
+        window.location.hash = '';
+      } catch (e) {}
+
+      if (window.App && typeof window.App.logout === 'function') {
+        window.App.logout();
+      } else if (window.App && typeof window.App.showAuth === 'function') {
+        if (window.App.showToast) window.App.showToast('Logged out successfully.', 'info');
         window.App.showAuth();
       } else {
-        window.location.reload();
+        window.location.href = window.location.pathname;
       }
     }
   },
@@ -553,21 +633,65 @@ const HodApp = {
 
   initRealtimeSync() {
     if (this.refreshTimer) clearInterval(this.refreshTimer);
-    // Auto-refresh pending queue status every 45 seconds
+    // Auto-refresh pending queue status and badges every 30 seconds
     this.refreshTimer = setInterval(async () => {
       try {
-        const appRes = await API.getHodApprovals({ status: 'PENDING' });
-        if (appRes && appRes.success && Array.isArray(appRes.approvals)) {
-          this.updatePendingBadge(appRes.approvals.length);
-        }
+        await this.refreshPendingCounters();
       } catch (e) {}
-    }, 45000);
+    }, 30000);
+  },
+
+  getSortMinutes(timeStr) {
+    if (!timeStr) return 0;
+    const parts = String(timeStr).trim().split(':');
+    let h = parseInt(parts[0], 10);
+    const m = parseInt(parts[1] || '0', 10);
+    if (isNaN(h)) return 0;
+    if (h < 8) h += 12; // College starts at 9:30 AM; times < 8 (e.g. 01:15, 02:30) are PM
+    return h * 60 + (isNaN(m) ? 0 : m);
+  },
+
+  formatTime12H(timeStr) {
+    if (!timeStr) return '';
+    const clean = String(timeStr).trim();
+    if (clean.toUpperCase().includes('AM') || clean.toUpperCase().includes('PM')) {
+      return clean;
+    }
+    const parts = clean.split(':');
+    let h = parseInt(parts[0], 10);
+    const m = String(parseInt(parts[1] || '0', 10)).padStart(2, '0');
+    if (isNaN(h)) return clean;
+    const isPM = (h < 8 || h >= 12);
+    let displayH = h;
+    if (h > 12) displayH = h - 12;
+    else if (h === 0) displayH = 12;
+    return `${String(displayH).padStart(2, '0')}:${m} ${isPM ? 'PM' : 'AM'}`;
+  },
+
+  formatTimeRange(start, end) {
+    if (!start || !end) return '';
+    return `${this.formatTime12H(start)} - ${this.formatTime12H(end)}`;
+  },
+
+  isCurrentSlot(startTime, endTime, day) {
+    try {
+      const today = getIndianDayName();
+      if (day && day !== today) return false;
+      const now = getIndianDate();
+      const curMinutes = now.getHours() * 60 + now.getMinutes();
+      const startMin = this.getSortMinutes(startTime);
+      const endMin = this.getSortMinutes(endTime);
+      return curMinutes >= startMin && curMinutes <= endMin;
+    } catch (e) {
+      return false;
+    }
   },
 
   // ========================================================================
   // MODULE 1: DEPARTMENT DASHBOARD
   // ========================================================================
   async renderDashboard() {
+    try { localStorage.removeItem('mgi_cache_hod_dashboard'); } catch (e) {}
     let res;
     try {
       res = await API.getHodDashboard();
@@ -583,12 +707,15 @@ const HodApp = {
 
     const s = res.stats || {};
     const lectures = res.todayLectures || [];
-    const pendingApprovals = res.pendingApprovals || [];
-    const pendingLeaves = res.pendingLeaves || [];
+    const pendingApprovals = (res.pendingApprovals || []).filter(a => a.status === 'PENDING');
+    const pendingLeaves = (res.pendingLeaves || []).filter(l => l.status === 'PENDING');
     const workload = res.facultyWorkload || [];
     const exams = res.upcomingExams || [];
 
-    this.updatePendingBadge((s.pendingApprovalsCount || 0) + (s.pendingLeavesCount || 0));
+    const effectivePendingApprovalsCount = (s.pendingApprovalsCount !== undefined) ? s.pendingApprovalsCount : pendingApprovals.length;
+    const effectivePendingLeavesCount = (s.pendingLeavesCount !== undefined) ? s.pendingLeavesCount : pendingLeaves.length;
+
+    this.updatePendingBadges(effectivePendingApprovalsCount, effectivePendingLeavesCount);
 
     const content = document.getElementById('hod-content-area');
     content.innerHTML = `
@@ -607,10 +734,13 @@ const HodApp = {
           
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
             <button class="btn-primary" onclick="HodApp.switchSection('approvals')" style="padding:8px 14px; font-size:12px; display:inline-flex; align-items:center; gap:6px;">
-              <span>⚡</span> <span>Review Pending Approvals (${(s.pendingApprovalsCount || 0) + (s.pendingLeavesCount || 0)})</span>
+              <span>⚡</span> <span>HOD Approvals (${effectivePendingApprovalsCount})</span>
+            </button>
+            <button class="btn-sec" onclick="HodApp.switchSection('leaves')" style="padding:8px 14px; font-size:12px; display:inline-flex; align-items:center; gap:6px; background:rgba(245,158,11,0.12); border-color:rgba(245,158,11,0.3); color:#f59e0b;">
+              <span>✉️</span> <span>Leave Requests (${effectivePendingLeavesCount})</span>
             </button>
             <button class="btn-sec" onclick="HodApp.switchSection('reports')" style="padding:8px 14px; font-size:12px; display:inline-flex; align-items:center; gap:6px;">
-              <span>📄</span> <span>Generate Reports</span>
+              <span>📄</span> <span>Reports</span>
             </button>
           </div>
         </div>
@@ -670,8 +800,8 @@ const HodApp = {
               <span style="font-size:11.5px; font-weight:700; color:var(--text-muted); text-transform:uppercase;">Pending Approvals</span>
               <span style="font-size:20px;">⚡</span>
             </div>
-            <div style="font-size:24px; font-weight:900; color:${(s.pendingApprovalsCount || 0) > 0 ? '#ef4444' : '#10b981'}; margin:8px 0 2px;">
-              ${s.pendingApprovalsCount || 0}
+            <div style="font-size:24px; font-weight:900; color:${effectivePendingApprovalsCount > 0 ? '#ef4444' : '#10b981'}; margin:8px 0 2px;">
+              ${effectivePendingApprovalsCount}
             </div>
             <div style="font-size:11px; color:var(--text-secondary);">Marks & Timetable changes</div>
           </div>
@@ -681,8 +811,8 @@ const HodApp = {
               <span style="font-size:11.5px; font-weight:700; color:var(--text-muted); text-transform:uppercase;">Pending Leaves</span>
               <span style="font-size:20px;">✉️</span>
             </div>
-            <div style="font-size:24px; font-weight:900; color:${(s.pendingLeavesCount || 0) > 0 ? '#f59e0b' : '#10b981'}; margin:8px 0 2px;">
-              ${s.pendingLeavesCount || 0}
+            <div style="font-size:24px; font-weight:900; color:${effectivePendingLeavesCount > 0 ? '#f59e0b' : '#10b981'}; margin:8px 0 2px;">
+              ${effectivePendingLeavesCount}
             </div>
             <div style="font-size:11px; color:var(--text-secondary);">Faculty & Student requests</div>
           </div>
@@ -719,39 +849,45 @@ const HodApp = {
               </div>
             ` : `
               <div style="display:flex; flex-direction:column; gap:8px;">
-                ${lectures.map(l => `
-                  <div style="padding:10px 14px; background:rgba(255,255,255,0.03); border:1px solid var(--border-color); border-radius:8px; display:flex; justify-content:space-between; align-items:center; gap:12px;">
+                ${[...lectures].sort((a, b) => this.getSortMinutes(a.start_time) - this.getSortMinutes(b.start_time)).map(l => {
+                  const isLive = this.isCurrentSlot(l.start_time, l.end_time, res.todayDay);
+                  return `
+                  <div style="padding:10px 14px; background:${isLive ? 'rgba(16,185,129,0.08)' : 'rgba(255,255,255,0.03)'}; border:1px solid ${isLive ? 'rgba(16,185,129,0.35)' : 'var(--border-color)'}; border-radius:8px; display:flex; justify-content:space-between; align-items:center; gap:12px;">
                     <div>
                       <div style="font-size:13px; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:6px;">
                         <span>${l.subject}</span>
                         ${l.is_lab ? '<span class="badge" style="background:#a855f7; color:#fff; font-size:9.5px; padding:1px 5px;">LAB</span>' : ''}
                         ${l.override_type ? '<span class="badge" style="background:#f59e0b; color:#fff; font-size:9.5px; padding:1px 5px;">ROOM CHANGE</span>' : ''}
+                        ${isLive ? '<span class="badge" style="background:#10b981; color:#fff; font-size:9px; padding:2px 6px; font-weight:800;">● LIVE NOW</span>' : ''}
                       </div>
                       <div style="font-size:11.5px; color:var(--text-muted); margin-top:2px;">
                         <span>${l.effective_teacher || l.teacher}</span> • <span>Room ${l.effective_room || l.room}</span> • <span>${l.batch}</span>
                       </div>
                     </div>
                     <div style="text-align:right;">
-                      <span class="badge" style="background:rgba(56,189,248,0.15); color:#38bdf8; font-size:11px; padding:3px 8px; border-radius:6px; font-weight:700;">
-                        ${l.start_time} - ${l.end_time}
+                      <span class="badge" style="background:rgba(56,189,248,0.15); color:#38bdf8; font-size:11px; padding:3px 8px; border-radius:6px; font-weight:700; white-space:nowrap;">
+                        ${this.formatTimeRange(l.start_time, l.end_time)}
                       </span>
                     </div>
                   </div>
-                `).join('')}
+                `;}).join('')}
               </div>
             `}
           </div>
 
           <!-- Pending Approvals & Leave Requests -->
           <div class="card" style="padding:20px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:8px;">
               <div>
                 <h3 style="font-size:15px; font-weight:800; margin:0; display:flex; align-items:center; gap:8px;">
-                  <span>⚡</span> Pending Action Items
+                  <span>⚡</span> Pending Action Items (${effectivePendingApprovalsCount + effectivePendingLeavesCount})
                 </h3>
-                <span style="font-size:11.5px; color:var(--text-muted);">Decisions requiring HOD authorization</span>
+                <span style="font-size:11.5px; color:var(--text-muted);">${effectivePendingApprovalsCount} Approvals • ${effectivePendingLeavesCount} Leaves</span>
               </div>
-              <button class="btn-sec" onclick="HodApp.switchSection('approvals')" style="padding:4px 10px; font-size:11px;">Queue</button>
+              <div style="display:flex; gap:6px;">
+                <button class="btn-sec" onclick="HodApp.switchSection('approvals')" style="padding:4px 10px; font-size:11px;">Approvals (${effectivePendingApprovalsCount})</button>
+                <button class="btn-sec" onclick="HodApp.switchSection('leaves')" style="padding:4px 10px; font-size:11px;">Leaves (${effectivePendingLeavesCount})</button>
+              </div>
             </div>
 
             ${(pendingApprovals.length === 0 && pendingLeaves.length === 0) ? `
@@ -915,7 +1051,10 @@ const HodApp = {
               <textarea id="prof-desc" class="form-control" rows="3">${p.description || ''}</textarea>
             </div>
 
-            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px; border-top:1px solid var(--border-color); padding-top:16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-top:20px; border-top:1px solid var(--border-color); padding-top:16px; flex-wrap:wrap;">
+              <button type="button" class="btn-sec" onclick="HodApp.logout()" style="color:#ef4444; border-color:rgba(239,68,68,0.3); padding:9px 18px; font-size:12.5px; font-weight:700;">
+                <span>🚪 Logout HOD Session</span>
+              </button>
               <button type="submit" class="btn-primary" style="padding:9px 24px; font-size:13px; font-weight:800;">
                 <span>💾 Save Department Profile</span>
               </button>
@@ -1315,19 +1454,45 @@ const HodApp = {
   // ========================================================================
   // MODULE 4: STUDENT MANAGEMENT
   // ========================================================================
+  // ========================================================================
+  // MODULE 4: STUDENT MANAGEMENT (PROFILE CARDS & DEDICATED DETAILS VIEW)
+  // ========================================================================
+  getStudentAvatarHtml(photoUrl, name, size = 52) {
+    const initials = (name || 'S')
+      .split(' ')
+      .map(w => w[0])
+      .filter(Boolean)
+      .slice(0, 2)
+      .join('')
+      .toUpperCase();
+    if (photoUrl) {
+      const src = (window.API && API.getFileUrl) ? API.getFileUrl(photoUrl) : photoUrl;
+      return `<img src="${src}" alt="${name || 'Student'}" class="student-card-avatar" style="width:${size}px; height:${size}px;" onerror="this.onerror=null; this.parentElement.innerHTML='<div style=\\\'width:${size}px; height:${size}px; border-radius:50%; background:linear-gradient(135deg,#1d4ed8,#0ea5e9); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:${Math.round(size*0.36)}px; border:2px solid rgba(56,189,248,0.4); flex-shrink:0;\\\'>${initials}</div>';" />`;
+    }
+    return `<div style="width:${size}px; height:${size}px; border-radius:50%; background:linear-gradient(135deg,#1d4ed8,#0ea5e9); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:${Math.round(size*0.36)}px; border:2px solid rgba(56,189,248,0.4); flex-shrink:0;">${initials}</div>`;
+  },
+
   async renderStudents(page = 1) {
-    const searchVal = document.getElementById('student-search-input')?.value || '';
-    const batchVal = document.getElementById('student-batch-filter')?.value || 'All';
+    if (!this.studentState) {
+      this.studentState = { page: 1, searchVal: '', batchVal: 'All', viewMode: 'cards' };
+    }
+
+    const searchInput = document.getElementById('student-search-input');
+    const batchSelect = document.getElementById('student-batch-filter');
+    if (searchInput) this.studentState.searchVal = searchInput.value;
+    if (batchSelect) this.studentState.batchVal = batchSelect.value;
+    this.studentState.page = page || 1;
 
     const res = await API.getHodStudents({
-      page,
-      limit: 25,
-      search: searchVal,
-      batch: batchVal
+      page: this.studentState.page,
+      limit: 24,
+      search: this.studentState.searchVal,
+      batch: this.studentState.batchVal
     });
 
     const students = (res && res.students) || [];
-    const p = (res && res.pagination) || { page: 1, totalPages: 1, total: students.length };
+    const p = (res && res.pagination) || { page: this.studentState.page, totalPages: 1, total: students.length };
+    const viewMode = this.studentState.viewMode || 'cards';
 
     const content = document.getElementById('hod-content-area');
     content.innerHTML = `
@@ -1340,7 +1505,17 @@ const HodApp = {
               🎓 ${p.total} Enrolled Students (Division 3CYBER7)
             </span>
           </div>
-          <div style="display:flex; gap:10px;">
+          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <!-- View Switcher -->
+            <div class="view-switcher-group">
+              <button class="view-switcher-btn ${viewMode === 'cards' ? 'active' : ''}" onclick="HodApp.setStudentViewMode('cards')">
+                <span>🎴</span> <span>Cards</span>
+              </button>
+              <button class="view-switcher-btn ${viewMode === 'table' ? 'active' : ''}" onclick="HodApp.setStudentViewMode('table')">
+                <span>📋</span> <span>Table</span>
+              </button>
+            </div>
+
             <a href="/api/hod/students/export?token=${API.getToken()}" download="students_roster.csv" class="btn-sec" style="padding:8px 14px; font-size:12px; text-decoration:none; display:inline-flex; align-items:center; gap:6px; border-radius:8px;">
               <span>📥</span> <span>Export CSV Roster</span>
             </a>
@@ -1350,138 +1525,493 @@ const HodApp = {
         <!-- Filter bar -->
         <div class="card" style="padding:14px; display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
           <div style="flex:1; min-width:240px;">
-            <input type="text" id="student-search-input" class="form-control" placeholder="Search by student name, roll number, or UG ID..." value="${searchVal}" onkeydown="if(event.key==='Enter') HodApp.renderStudents(1)" style="height:38px; font-size:12.5px;" />
+            <input type="text" id="student-search-input" class="form-control" placeholder="Search by student name, roll number, or UG ID..." value="${this.studentState.searchVal || ''}" onkeydown="if(event.key==='Enter') HodApp.renderStudents(1)" style="height:38px; font-size:12.5px;" />
           </div>
           <div style="min-width:140px;">
             <select id="student-batch-filter" class="form-control" onchange="HodApp.renderStudents(1)" style="height:38px; font-size:12.5px;">
-              <option value="All" ${batchVal === 'All' ? 'selected' : ''}>All Batches</option>
-              <option value="Batch 1" ${batchVal === 'Batch 1' ? 'selected' : ''}>Batch 1 (1-30)</option>
-              <option value="Batch 2" ${batchVal === 'Batch 2' ? 'selected' : ''}>Batch 2 (31+)</option>
+              <option value="All" ${this.studentState.batchVal === 'All' ? 'selected' : ''}>All Batches</option>
+              <option value="Batch 1" ${this.studentState.batchVal === 'Batch 1' ? 'selected' : ''}>Batch 1 (1-30)</option>
+              <option value="Batch 2" ${this.studentState.batchVal === 'Batch 2' ? 'selected' : ''}>Batch 2 (31+)</option>
             </select>
           </div>
           <button class="btn-primary" onclick="HodApp.renderStudents(1)" style="padding:8px 16px; font-size:12px;">Search</button>
         </div>
 
-        <!-- Students Data Table -->
-        <div class="card" style="padding:0; overflow:hidden;">
-          <div style="overflow-x:auto;">
-            <table class="table" style="width:100%; border-collapse:collapse; font-size:12.5px;">
-              <thead>
-                <tr style="border-bottom:1px solid var(--border-color); background:rgba(255,255,255,0.02); text-align:left; color:var(--text-muted);">
-                  <th style="padding:12px 14px; width:70px;">Roll</th>
-                  <th style="padding:12px 14px;">UG ID</th>
-                  <th style="padding:12px 14px;">Student Name</th>
-                  <th style="padding:12px 14px;">Batch</th>
-                  <th style="padding:12px 14px;">Phone</th>
-                  <th style="padding:12px 14px; text-align:center;">Attendance</th>
-                  <th style="padding:12px 14px; text-align:center;">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${students.map(s => {
-                  const att = s.attendance_percentage || 88;
-                  const attColor = att >= 75 ? '#10b981' : '#ef4444';
-                  return `
-                    <tr style="border-bottom:1px solid var(--border-color);">
-                      <td style="padding:11px 14px; font-weight:800; color:var(--text-primary);">${s.roll_number}</td>
-                      <td style="padding:11px 14px; font-family:monospace; color:#38bdf8;">${s.ug_id}</td>
-                      <td style="padding:11px 14px; font-weight:700; color:var(--text-primary);">
-                        ${s.name} ${s.is_cr ? '<span class="badge" style="background:#f59e0b; color:#fff; font-size:9.5px; margin-left:4px;">CR</span>' : ''}
-                      </td>
-                      <td style="padding:11px 14px; color:var(--text-secondary);">${s.batch}</td>
-                      <td style="padding:11px 14px; color:var(--text-muted);">${s.phone_number || '-'}</td>
-                      <td style="padding:11px 14px; text-align:center;">
-                        <span class="badge" style="background:${attColor}; color:#fff; font-size:10px; padding:2px 7px;">${att}%</span>
-                      </td>
-                      <td style="padding:11px 14px; text-align:center;">
-                        <button class="btn-sec" onclick="HodApp.viewStudentProfile('${s.ug_id}')" style="padding:4px 10px; font-size:11px;">Profile</button>
-                      </td>
-                    </tr>
-                  `;
-                }).join('')}
-              </tbody>
-            </table>
+        ${students.length === 0 ? `
+          <div class="card" style="padding:40px 20px; text-align:center; color:var(--text-muted);">
+            <div style="font-size:32px; margin-bottom:8px;">🔍</div>
+            <h4 style="font-size:15px; font-weight:700; color:var(--text-primary); margin-bottom:4px;">No matching students found</h4>
+            <p style="font-size:12.5px; margin:0;">Try adjusting your search criteria or batch filter.</p>
+          </div>
+        ` : (viewMode === 'cards' ? `
+          <!-- Student Profile Cards Grid -->
+          <div class="student-card-grid">
+            ${students.map(s => {
+              const att = s.attendance_percentage != null ? s.attendance_percentage : 88;
+              const attColor = att >= 75 ? '#10b981' : (att >= 60 ? '#f59e0b' : '#ef4444');
+              const attBg = att >= 75 ? 'rgba(16,185,129,0.15)' : (att >= 60 ? 'rgba(245,158,11,0.15)' : 'rgba(239,68,68,0.15)');
+              const photoHtml = this.getStudentAvatarHtml(s.profile_photo_url, s.name, 48);
+
+              return `
+                <div class="student-profile-card">
+                  <div>
+                    <div class="student-card-header">
+                      <div style="flex-shrink:0;">
+                        ${photoHtml}
+                      </div>
+                      <div class="student-card-info">
+                        <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;">
+                          <span class="badge" style="background:rgba(56,189,248,0.15); color:#38bdf8; font-size:10px; font-weight:800; padding:2px 7px;">
+                            ROLL #${s.roll_number != null ? s.roll_number : 'N/A'}
+                          </span>
+                          <span class="badge" style="background:rgba(16,185,129,0.12); color:#10b981; font-size:10px; padding:2px 7px;">
+                            ${s.status || 'Active'}
+                          </span>
+                        </div>
+                        <h4 class="student-card-name" title="${s.name || ''}">${s.name || 'Not available'}</h4>
+                        <span class="student-card-ug">${s.ug_id || 'Not available'}</span>
+                        <div class="student-card-meta-chips">
+                          <span class="student-card-meta-chip">${s.batch || 'Batch'}</span>
+                          <span class="student-card-meta-chip">${s.division || '3CYBER7'}</span>
+                          ${s.is_cr ? '<span class="badge" style="background:#f59e0b; color:#fff; font-size:9.5px; padding:1px 5px;">CR</span>' : ''}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="student-card-details-grid" style="margin-top:12px;">
+                      <div class="student-card-detail-item">
+                        <span class="student-card-detail-label">Department</span>
+                        <span class="student-card-detail-val" title="${s.department || 'Computer Science & Engineering'}">${s.department || 'Computer Science & Engineering'}</span>
+                      </div>
+                      <div class="student-card-detail-item">
+                        <span class="student-card-detail-label">Semester</span>
+                        <span class="student-card-detail-val">${s.semester || '3rd Semester'}</span>
+                      </div>
+                      <div class="student-card-detail-item">
+                        <span class="student-card-detail-label">Section</span>
+                        <span class="student-card-detail-val">${s.division || '3CYBER7'}</span>
+                      </div>
+                      <div class="student-card-detail-item">
+                        <span class="student-card-detail-label">Batch</span>
+                        <span class="student-card-detail-val">${s.batch || 'Not available'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="student-card-footer">
+                    <div style="display:flex; align-items:center; gap:6px;">
+                      <span style="font-size:11px; color:var(--text-muted);">Attendance:</span>
+                      <span class="badge" style="background:${attBg}; color:${attColor}; font-weight:800; font-size:11px; padding:2px 7px;">
+                        ${att}%
+                      </span>
+                    </div>
+                    <button class="btn-primary" onclick="HodApp.openStudentDetails('${s.ug_id}')" style="padding:6px 14px; font-size:11.5px; border-radius:6px; margin:0; display:inline-flex; align-items:center; gap:5px;">
+                      <span>📄</span> <span>More Details</span>
+                    </button>
+                  </div>
+                </div>
+              `;
+            }).join('')}
           </div>
 
-          <!-- Pagination Row -->
-          <div style="padding:14px; border-top:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--text-muted);">
+          <!-- Pagination Row for Cards View -->
+          <div class="card" style="padding:14px; display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--text-muted);">
             <div>Showing page ${p.page} of ${p.totalPages || 1} (${p.total} total)</div>
             <div style="display:flex; gap:6px;">
               <button class="btn-sec" onclick="HodApp.renderStudents(${Math.max(1, p.page - 1)})" ${p.page <= 1 ? 'disabled' : ''} style="padding:4px 10px; font-size:11px;">Prev</button>
               <button class="btn-sec" onclick="HodApp.renderStudents(${p.page + 1})" ${p.page >= p.totalPages ? 'disabled' : ''} style="padding:4px 10px; font-size:11px;">Next</button>
             </div>
           </div>
-        </div>
+        ` : `
+          <!-- Students Data Table -->
+          <div class="card" style="padding:0; overflow:hidden;">
+            <div style="overflow-x:auto;">
+              <table class="table" style="width:100%; border-collapse:collapse; font-size:12.5px;">
+                <thead>
+                  <tr style="border-bottom:1px solid var(--border-color); background:rgba(255,255,255,0.02); text-align:left; color:var(--text-muted);">
+                    <th style="padding:12px 14px; width:70px;">Roll</th>
+                    <th style="padding:12px 14px;">UG ID</th>
+                    <th style="padding:12px 14px;">Student Name</th>
+                    <th style="padding:12px 14px;">Department</th>
+                    <th style="padding:12px 14px;">Batch</th>
+                    <th style="padding:12px 14px;">Phone</th>
+                    <th style="padding:12px 14px; text-align:center;">Attendance</th>
+                    <th style="padding:12px 14px; text-align:center;">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${students.map(s => {
+                    const att = s.attendance_percentage != null ? s.attendance_percentage : 88;
+                    const attColor = att >= 75 ? '#10b981' : '#ef4444';
+                    const photoHtml = this.getStudentAvatarHtml(s.profile_photo_url, s.name, 28);
+                    return `
+                      <tr style="border-bottom:1px solid var(--border-color);">
+                        <td style="padding:11px 14px; font-weight:800; color:var(--text-primary);">${s.roll_number != null ? s.roll_number : 'N/A'}</td>
+                        <td style="padding:11px 14px; font-family:monospace; color:#38bdf8;">${s.ug_id || 'Not available'}</td>
+                        <td style="padding:11px 14px; font-weight:700; color:var(--text-primary);">
+                          <div style="display:flex; align-items:center; gap:8px;">
+                            ${photoHtml}
+                            <div>
+                              ${s.name || 'Not available'}
+                              ${s.is_cr ? '<span class="badge" style="background:#f59e0b; color:#fff; font-size:9.5px; margin-left:4px;">CR</span>' : ''}
+                            </div>
+                          </div>
+                        </td>
+                        <td style="padding:11px 14px; color:var(--text-secondary); font-size:11.5px;">${s.department || 'Computer Science & Engineering'}</td>
+                        <td style="padding:11px 14px; color:var(--text-secondary);">${s.batch || 'Not available'}</td>
+                        <td style="padding:11px 14px; color:var(--text-muted);">${s.phone_number || 'Not available'}</td>
+                        <td style="padding:11px 14px; text-align:center;">
+                          <span class="badge" style="background:${attColor}; color:#fff; font-size:10px; padding:2px 7px;">${att}%</span>
+                        </td>
+                        <td style="padding:11px 14px; text-align:center;">
+                          <button class="btn-sec" onclick="HodApp.openStudentDetails('${s.ug_id}')" style="padding:4px 10px; font-size:11px;">More Details</button>
+                        </td>
+                      </tr>
+                    `;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Pagination Row for Table View -->
+            <div style="padding:14px; border-top:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--text-muted);">
+              <div>Showing page ${p.page} of ${p.totalPages || 1} (${p.total} total)</div>
+              <div style="display:flex; gap:6px;">
+                <button class="btn-sec" onclick="HodApp.renderStudents(${Math.max(1, p.page - 1)})" ${p.page <= 1 ? 'disabled' : ''} style="padding:4px 10px; font-size:11px;">Prev</button>
+                <button class="btn-sec" onclick="HodApp.renderStudents(${p.page + 1})" ${p.page >= p.totalPages ? 'disabled' : ''} style="padding:4px 10px; font-size:11px;">Next</button>
+              </div>
+            </div>
+          </div>
+        `)}
 
       </div>
     `;
   },
 
-  async viewStudentProfile(ugId) {
+  setStudentViewMode(mode) {
+    if (!this.studentState) this.studentState = {};
+    this.studentState.viewMode = mode;
+    this.renderStudents(this.studentState.page || 1);
+  },
+
+  async openStudentDetails(ugId) {
+    const content = document.getElementById('hod-content-area');
+    if (!content) return;
+
+    content.innerHTML = `
+      <div style="padding:40px; text-align:center;">
+        <div class="spinner" style="margin:0 auto 12px;"></div>
+        <div style="color:var(--text-muted); font-size:13px;">Loading student complete department record...</div>
+      </div>
+    `;
+
     try {
       const res = await API.getHodStudentById(ugId);
       const s = (res && res.student) || {};
       const results = (res && res.results) || [];
+      const attendanceManual = (res && res.attendanceManual) || [];
+      const attendanceScans = (res && res.attendanceScans) || [];
       const mentoring = (res && res.mentoring) || [];
+      const submissions = (res && res.submissions) || [];
+      const leaves = (res && res.leaves) || [];
 
-      this.openModal(`
-        <div style="padding:24px; max-width:680px; width:100%; max-height:85vh; overflow-y:auto;">
-          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; border-bottom:1px solid var(--border-color); padding-bottom:12px;">
-            <div>
-              <span class="badge" style="background:#2563eb; color:#fff; font-size:10.5px;">ROLL: ${s.roll_number} • ${s.batch}</span>
-              <h3 style="font-size:17px; font-weight:800; color:var(--text-primary); margin:6px 0 2px;">${s.name}</h3>
-              <div style="font-size:12px; color:var(--text-muted);">UG ID: ${s.ug_id} • ${s.program || 'B.Tech Cyber Security'}</div>
+      const photoHtml = this.getStudentAvatarHtml(s.profile_photo_url, s.name, 72);
+
+      // Total attendance statistics
+      const totalSessions = (attendanceManual.length + attendanceScans.length);
+      const totalPresent = attendanceManual.filter(a => a.status === 'PRESENT').length + attendanceScans.filter(a => a.status === 'PRESENT').length;
+      const attPercent = totalSessions > 0 ? Math.round((totalPresent / totalSessions) * 100) : (s.attendance_percentage != null ? s.attendance_percentage : 'Not available');
+
+      content.innerHTML = `
+        <div class="student-details-page">
+          <!-- Top Navigation Header -->
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+            <button class="btn-sec" onclick="HodApp.renderStudents(HodApp.studentState ? HodApp.studentState.page : 1)" style="padding:8px 16px; font-size:12.5px; display:inline-flex; align-items:center; gap:8px;">
+              <span>←</span> <span>Back to Student List</span>
+            </button>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="badge" style="background:rgba(56,189,248,0.15); color:#38bdf8; font-size:11.5px; font-weight:700;">
+                HOD Department Record: CSE
+              </span>
             </div>
-            <button class="icon-btn" onclick="HodApp.closeModal()" style="width:28px; height:28px;">✕</button>
           </div>
 
-          <!-- Internal Assessment Results -->
-          <div style="margin-bottom:18px;">
-            <h4 style="font-size:13px; font-weight:800; color:#38bdf8; margin-bottom:8px; text-transform:uppercase;">Academic & Internal Marks</h4>
-            ${results.length === 0 ? `
-              <div style="padding:10px; color:var(--text-muted); font-size:12px; background:rgba(255,255,255,0.02); border-radius:6px;">No examination marks recorded yet.</div>
-            ` : `
-              <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:8px;">
-                ${results.map(r => `
-                  <div style="padding:10px; background:rgba(255,255,255,0.03); border:1px solid var(--border-color); border-radius:8px;">
-                    <div style="font-size:12px; font-weight:700;">${r.subject}</div>
-                    <div style="font-size:16px; font-weight:900; color:#10b981; margin:3px 0;">${r.marks} / ${r.max_marks || 100}</div>
-                    <div style="font-size:10.5px; color:var(--text-muted);">${r.exam_name} • Grade ${r.grade}</div>
+          <!-- Student Hero Profile Card -->
+          <div class="student-details-hero">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:18px;">
+              <div style="display:flex; align-items:center; gap:18px; flex-wrap:wrap;">
+                <div>${photoHtml}</div>
+                <div>
+                  <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                    <span class="badge" style="background:#2563eb; color:#fff; font-size:11px; font-weight:800;">
+                      ROLL #${s.roll_number != null ? s.roll_number : 'Not available'}
+                    </span>
+                    <span class="badge" style="background:rgba(16,185,129,0.15); color:#10b981; font-size:11px; font-weight:700;">
+                      ${s.status || 'Active'}
+                    </span>
+                    ${s.is_cr ? '<span class="badge" style="background:#f59e0b; color:#fff; font-size:11px; font-weight:700;">Class Representative (CR)</span>' : ''}
                   </div>
-                `).join('')}
+                  <h2 style="font-size:22px; font-weight:800; color:var(--text-primary); margin:8px 0 3px;">${s.name || 'Not available'}</h2>
+                  <div style="font-size:13px; color:var(--text-secondary); display:flex; gap:12px; flex-wrap:wrap;">
+                    <span>Enrollment / UG ID: <code style="color:#38bdf8; font-weight:700;">${s.ug_id || 'Not available'}</code></span>
+                    <span>•</span>
+                    <span>Department: <strong>${s.department || 'Computer Science & Engineering'}</strong></span>
+                    <span>•</span>
+                    <span>Batch: <strong>${s.batch || 'Not available'}</strong></span>
+                  </div>
+                </div>
               </div>
-            `}
+            </div>
+
+            <!-- Complete Academic Information Grid -->
+            <div class="student-details-grid">
+              <div class="student-details-item">
+                <span class="student-details-item-label">Department</span>
+                <span class="student-details-item-val">${s.department || 'Computer Science & Engineering'}</span>
+              </div>
+              <div class="student-details-item">
+                <span class="student-details-item-label">Academic Program</span>
+                <span class="student-details-item-val">${s.program || 'B.Tech Cyber Security'}</span>
+              </div>
+              <div class="student-details-item">
+                <span class="student-details-item-label">Current Semester</span>
+                <span class="student-details-item-val">${s.semester || '3rd Semester'} (${s.year || '2nd Year'})</span>
+              </div>
+              <div class="student-details-item">
+                <span class="student-details-item-label">Academic Year</span>
+                <span class="student-details-item-val">${s.academic_year || '2026-27'}</span>
+              </div>
+              <div class="student-details-item">
+                <span class="student-details-item-label">Section / Division</span>
+                <span class="student-details-item-val">${s.division || '3CYBER7'}</span>
+              </div>
+              <div class="student-details-item">
+                <span class="student-details-item-label">Assigned Batch</span>
+                <span class="student-details-item-val">${s.batch || 'Not available'}</span>
+              </div>
+              <div class="student-details-item">
+                <span class="student-details-item-label">Contact Phone</span>
+                <span class="student-details-item-val">${s.phone_number || 'Not available'}</span>
+              </div>
+              <div class="student-details-item">
+                <span class="student-details-item-label">CR Appointment</span>
+                <span class="student-details-item-val">${s.is_cr ? ('Yes (' + (s.cr_batches || 'Both') + ')') : 'No'}</span>
+              </div>
+              <div class="student-details-item">
+                <span class="student-details-item-label">Academic Status</span>
+                <span class="student-details-item-val" style="color:#10b981;">Good Standing (${s.status || 'Active'})</span>
+              </div>
+            </div>
           </div>
 
-          <!-- Mentoring Notes -->
-          <div>
-            <h4 style="font-size:13px; font-weight:800; color:#a855f7; margin-bottom:8px; text-transform:uppercase;">Mentoring Records</h4>
+          <!-- Attendance Records Card (Combining Manual & QR Verified Scans) -->
+          <div class="card" style="padding:22px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px;">
+              <div>
+                <h3 style="font-size:15px; font-weight:800; margin:0; display:flex; align-items:center; gap:8px;">
+                  <span>📊</span> Department Attendance Profile & Log
+                </h3>
+                <p style="font-size:12px; color:var(--text-secondary); margin:2px 0 0;">
+                  Consolidated tracking across Dynamic QR scans and Manual roll calls
+                </p>
+              </div>
+              <div style="display:flex; gap:10px; align-items:center;">
+                <span class="badge" style="background:${attPercent !== 'Not available' && attPercent >= 75 ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)'}; color:${attPercent !== 'Not available' && attPercent >= 75 ? '#10b981' : '#f59e0b'}; font-size:12px; font-weight:800; padding:4px 10px;">
+                  Overall: ${attPercent !== 'Not available' ? attPercent + '%' : 'Not available'}
+                </span>
+                <span class="badge" style="background:rgba(255,255,255,0.05); font-size:11.5px;">
+                  ${totalSessions > 0 ? `${totalPresent} / ${totalSessions} Sessions` : 'No logs recorded'}
+                </span>
+              </div>
+            </div>
+
+            <div style="max-height:220px; overflow-y:auto; border:1px solid var(--border-color); border-radius:8px;">
+              <table class="table" style="font-size:12px; width:100%; margin:0;">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Subject</th>
+                    <th>Method</th>
+                    <th>Status</th>
+                    <th>Remarks</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${(attendanceManual.length === 0 && attendanceScans.length === 0) ? `
+                    <tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:20px;">Not available</td></tr>
+                  ` : [
+                    ...attendanceManual.map(a => ({ ...a, type: 'Manual' })),
+                    ...attendanceScans.map(a => ({ ...a, type: 'QR Scan' }))
+                  ].slice(0, 30).map(a => `
+                    <tr>
+                      <td><strong>${a.date || 'Not available'}</strong></td>
+                      <td>${a.subject || 'Not available'}</td>
+                      <td><span class="badge" style="background:rgba(255,255,255,0.05); font-size:10px;">${a.type}</span></td>
+                      <td>
+                        <span class="badge" style="background:${a.status === 'PRESENT' ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)'}; color:${a.status === 'PRESENT' ? '#10b981' : '#ef4444'}; font-size:10.5px; font-weight:700;">
+                          ${a.status || 'Not available'}
+                        </span>
+                      </td>
+                      <td style="color:var(--text-secondary);">${a.remarks || '-'}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Academic Marks & Internal Assessments Card -->
+          <div class="card" style="padding:22px;">
+            <h3 style="font-size:15px; font-weight:800; margin:0 0 14px; display:flex; align-items:center; gap:8px;">
+              <span>📝</span> Internal Assessment & Examination Marks
+            </h3>
+
+            <div style="max-height:220px; overflow-y:auto; border:1px solid var(--border-color); border-radius:8px;">
+              <table class="table" style="font-size:12px; width:100%; margin:0;">
+                <thead>
+                  <tr>
+                    <th>Subject</th>
+                    <th>Exam Name</th>
+                    <th>Semester</th>
+                    <th>Marks</th>
+                    <th>Max Marks</th>
+                    <th>Grade</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${results.length === 0 ? `
+                    <tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:20px;">Not available</td></tr>
+                  ` : results.map(r => `
+                    <tr>
+                      <td><strong>${r.subject || 'Not available'}</strong></td>
+                      <td>${r.exam_name || 'Not available'}</td>
+                      <td>${r.semester || '3rd Semester'}</td>
+                      <td><strong style="color:#10b981; font-size:13px;">${r.marks != null ? r.marks : 'Not available'}</strong></td>
+                      <td>${r.max_marks != null ? r.max_marks : 100}</td>
+                      <td><span class="badge" style="background:rgba(56,189,248,0.15); color:#38bdf8; font-weight:800;">${r.grade || 'Not available'}</span></td>
+                      <td><span class="badge" style="background:rgba(16,185,129,0.1); color:#10b981; font-size:10.5px;">${r.status || 'APPROVED'}</span></td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Assignment Submissions Card -->
+          <div class="card" style="padding:22px;">
+            <h3 style="font-size:15px; font-weight:800; margin:0 0 14px; display:flex; align-items:center; gap:8px;">
+              <span>📚</span> Assignment Submissions & Coursework
+            </h3>
+
+            <div style="max-height:220px; overflow-y:auto; border:1px solid var(--border-color); border-radius:8px;">
+              <table class="table" style="font-size:12px; width:100%; margin:0;">
+                <thead>
+                  <tr>
+                    <th>Assignment Title</th>
+                    <th>Subject</th>
+                    <th>Submitted At</th>
+                    <th>Marks</th>
+                    <th>Status</th>
+                    <th>Feedback</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${submissions.length === 0 ? `
+                    <tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:20px;">Not available</td></tr>
+                  ` : submissions.map(sub => `
+                    <tr>
+                      <td><strong>${sub.assignment_title || 'Not available'}</strong></td>
+                      <td>${sub.assignment_subject || 'Not available'}</td>
+                      <td style="color:var(--text-muted); font-size:11px;">${sub.submitted_at || 'Not available'}</td>
+                      <td><strong>${sub.marks_obtained != null ? sub.marks_obtained : '-'}</strong> / ${sub.max_marks || 100}</td>
+                      <td><span class="badge" style="background:rgba(56,189,248,0.15); color:#38bdf8; font-size:10.5px;">${sub.status || 'SUBMITTED'}</span></td>
+                      <td style="color:var(--text-secondary);">${sub.feedback || '-'}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Mentoring Records Card -->
+          <div class="card" style="padding:22px;">
+            <h3 style="font-size:15px; font-weight:800; margin:0 0 14px; display:flex; align-items:center; gap:8px;">
+              <span>🤝</span> Student Mentoring & Follow-ups
+            </h3>
+
             ${mentoring.length === 0 ? `
-              <div style="padding:10px; color:var(--text-muted); font-size:12px; background:rgba(255,255,255,0.02); border-radius:6px;">No mentoring interventions logged for this student.</div>
+              <div style="padding:20px; text-align:center; color:var(--text-muted); font-size:12.5px; background:rgba(255,255,255,0.02); border-radius:8px;">
+                Not available
+              </div>
             ` : `
-              <div style="display:flex; flex-direction:column; gap:8px;">
+              <div style="display:flex; flex-direction:column; gap:10px;">
                 ${mentoring.map(m => `
-                  <div style="padding:10px 14px; background:rgba(255,255,255,0.03); border:1px solid var(--border-color); border-radius:8px;">
-                    <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:700; color:var(--text-primary);">
-                      <span>Mentor: ${m.mentor_name}</span>
-                      <span style="color:var(--text-muted);">${m.session_date}</span>
+                  <div style="padding:14px; background:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:8px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                      <span style="font-size:13px; font-weight:700; color:var(--text-primary);">Mentor: ${m.mentor_name || 'Not available'}</span>
+                      <span class="badge" style="background:rgba(168,85,247,0.15); color:#c084fc; font-size:11px;">${m.session_date || 'Not available'}</span>
                     </div>
-                    <div style="font-size:12px; color:var(--text-secondary); margin-top:4px;">${m.notes}</div>
-                    ${m.confidential_notes ? `<div style="font-size:11px; color:#f59e0b; margin-top:4px; font-style:italic;">🔒 Confidential: ${m.confidential_notes}</div>` : ''}
+                    <div style="font-size:12px; color:var(--text-secondary); margin-bottom:4px;">
+                      <strong>Academic Concerns:</strong> ${m.academic_concerns || 'None reported'}
+                    </div>
+                    <div style="font-size:12px; color:var(--text-primary);">
+                      <strong>Session Notes:</strong> ${m.notes || 'Not available'}
+                    </div>
+                    ${m.action_plan ? `<div style="font-size:11.5px; color:#38bdf8; margin-top:4px;"><strong>Action Plan:</strong> ${m.action_plan}</div>` : ''}
+                    ${m.confidential_notes ? `<div style="font-size:11.5px; color:#f59e0b; margin-top:4px;"><strong>🔒 Confidential (HOD Eyes Only):</strong> ${m.confidential_notes}</div>` : ''}
                   </div>
                 `).join('')}
               </div>
             `}
           </div>
 
-          <div style="display:flex; justify-content:flex-end; margin-top:16px;">
-            <button class="btn-sec" onclick="HodApp.closeModal()">Close</button>
+          <!-- Student Leave Requests Card -->
+          <div class="card" style="padding:22px;">
+            <h3 style="font-size:15px; font-weight:800; margin:0 0 14px; display:flex; align-items:center; gap:8px;">
+              <span>🏖️</span> Student Leave Requests
+            </h3>
+
+            ${leaves.length === 0 ? `
+              <div style="padding:20px; text-align:center; color:var(--text-muted); font-size:12.5px; background:rgba(255,255,255,0.02); border-radius:8px;">
+                Not available
+              </div>
+            ` : `
+              <div style="display:flex; flex-direction:column; gap:10px;">
+                ${leaves.map(l => `
+                  <div style="padding:14px; background:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:8px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                    <div>
+                      <div style="font-size:13px; font-weight:700; color:var(--text-primary);">${l.leave_type || 'Leave'} (${l.total_days || 1} Days)</div>
+                      <div style="font-size:12px; color:var(--text-secondary); margin-top:2px;">
+                        ${l.start_date} to ${l.end_date} • <em>Reason: ${l.reason || 'None stated'}</em>
+                      </div>
+                    </div>
+                    <span class="badge" style="background:${l.status === 'APPROVED' ? 'rgba(16,185,129,0.15)' : (l.status === 'REJECTED' ? 'rgba(239,68,68,0.15)' : 'rgba(245,158,11,0.15)')}; color:${l.status === 'APPROVED' ? '#10b981' : (l.status === 'REJECTED' ? '#ef4444' : '#f59e0b')}; font-weight:800; font-size:11px;">
+                      ${l.status || 'PENDING'}
+                    </span>
+                  </div>
+                `).join('')}
+              </div>
+            `}
+          </div>
+
+          <!-- Bottom Back Button -->
+          <div style="display:flex; justify-content:flex-start; margin-top:10px;">
+            <button class="btn-sec" onclick="HodApp.renderStudents(HodApp.studentState ? HodApp.studentState.page : 1)" style="padding:10px 20px; font-size:13px; display:inline-flex; align-items:center; gap:8px;">
+              <span>←</span> <span>Back to Student List</span>
+            </button>
           </div>
         </div>
-      `);
+      `;
     } catch (e) {
-      this.showToast('Failed to load student details.', 'error');
+      console.error('[HOD] openStudentDetails error:', e);
+      this.showToast('Failed to load student complete record.', 'error');
     }
+  },
+
+  // Backward-compatibility alias
+  async viewStudentProfile(ugId) {
+    return this.openStudentDetails(ugId);
   },
 
   // ========================================================================
@@ -1679,62 +2209,276 @@ const HodApp = {
   // ========================================================================
   // MODULE 6: TIMETABLE MANAGEMENT
   // ========================================================================
-  async renderTimetable(selectedDay = 'Monday') {
-    const res = await API.getHodTimetable({ day: selectedDay });
-    const slots = (res && res.timetable) || [];
+  currentTimetableSlots: [],
+
+  async renderTimetable(selectedDay = null) {
     const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const currentIndianDay = getIndianDayName();
+    const dayToUse = selectedDay || ((currentIndianDay && currentIndianDay !== 'Sunday' && days.includes(currentIndianDay)) ? currentIndianDay : 'Monday');
+
+    const res = await API.getHodTimetable({ day: dayToUse });
+    let rawSlots = (res && res.timetable) || [];
+    this.currentTimetableSlots = rawSlots;
+
+    // Strict chronological sort: college day starts at 09:30 AM
+    const slots = [...rawSlots].sort((a, b) => this.getSortMinutes(a.start_time) - this.getSortMinutes(b.start_time));
+
+    const totalSlots = slots.length;
+    const theoryCount = slots.filter(s => !s.is_lab && !String(s.subject).toUpperCase().includes('LIBRARY')).length;
+    const labCount = slots.filter(s => s.is_lab).length;
+    const libCount = slots.filter(s => String(s.subject).toUpperCase().includes('LIBRARY')).length;
 
     const content = document.getElementById('hod-content-area');
     content.innerHTML = `
       <div style="display:flex; flex-direction:column; gap:20px;">
         
+        <!-- Action & Navigation Bar -->
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
           <!-- Day Selector Tabs -->
-          <div style="display:flex; gap:6px; overflow-x:auto; background:rgba(255,255,255,0.03); padding:4px; border-radius:10px; border:1px solid var(--border-color);">
-            ${days.map(d => `
-              <button class="pill-tab ${d === selectedDay ? 'active' : ''}" onclick="HodApp.renderTimetable('${d}')">
-                ${d}
-              </button>
-            `).join('')}
+          <div style="display:flex; gap:6px; overflow-x:auto; background:rgba(255,255,255,0.03); padding:5px; border-radius:12px; border:1px solid var(--border-color);">
+            ${days.map(d => {
+              const isToday = d === currentIndianDay;
+              const isActive = d === dayToUse;
+              return `
+                <button class="pill-tab ${isActive ? 'active' : ''}" onclick="HodApp.renderTimetable('${d}')" style="display:inline-flex; align-items:center; gap:6px; padding:7px 14px; font-weight:700; border-radius:8px;">
+                  <span>${d}</span>
+                  ${isToday ? `<span class="badge" style="background:#10b981; color:#fff; font-size:8.5px; padding:1px 5px; border-radius:10px; font-weight:800;">TODAY</span>` : ''}
+                </button>
+              `;
+            }).join('')}
           </div>
-          <button class="btn-primary" onclick="HodApp.openAddTimetableModal('${selectedDay}')" style="padding:8px 16px; font-size:12px; display:inline-flex; align-items:center; gap:6px;">
-            <span>➕</span> <span>Add Class Slot</span>
-          </button>
+
+          <div style="display:flex; align-items:center; gap:8px;">
+            <button class="btn-sec" onclick="HodApp.renderTimetable('${dayToUse}')" style="padding:8px 12px; font-size:12px; display:inline-flex; align-items:center; gap:5px; border-radius:8px;" title="Reload Timetable">
+              <span>🔄</span> <span>Refresh</span>
+            </button>
+            <button class="btn-primary" onclick="HodApp.openAddTimetableModal('${dayToUse}')" style="padding:8px 16px; font-size:12px; display:inline-flex; align-items:center; gap:6px; border-radius:8px; box-shadow:0 4px 14px rgba(37,99,235,0.3);">
+              <span>➕</span> <span>Add Class Slot</span>
+            </button>
+          </div>
         </div>
 
-        <!-- Slots Table -->
-        <div class="card" style="padding:0; overflow:hidden;">
+        <!-- Schedule Overview & Working Hours Summary Card -->
+        <div class="card" style="padding:16px 20px; background:linear-gradient(135deg, rgba(30,41,59,0.7) 0%, rgba(15,23,42,0.85) 100%); border:1px solid rgba(56,189,248,0.2); border-radius:12px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
+          <div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="badge" style="background:rgba(56,189,248,0.15); color:#38bdf8; font-size:11px; font-weight:800; padding:3px 8px; border-radius:6px;">
+                TIMETABLE MATRIX
+              </span>
+              <span style="font-size:12.5px; font-weight:700; color:var(--text-secondary);">${dayToUse}'s Academic Schedule</span>
+            </div>
+            <div style="font-size:18px; font-weight:900; color:var(--text-primary); margin-top:4px;">
+              College Working Hours: <span style="color:#38bdf8;">09:30 AM</span> to <span style="color:#38bdf8;">04:20 PM</span>
+            </div>
+          </div>
+
+          <!-- Quick Metrics Chips -->
+          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <div style="padding:6px 12px; background:rgba(255,255,255,0.04); border:1px solid var(--border-color); border-radius:8px; text-align:center;">
+              <div style="font-size:11px; color:var(--text-muted); font-weight:600;">TOTAL SLOTS</div>
+              <div style="font-size:16px; font-weight:800; color:var(--text-primary);">${totalSlots}</div>
+            </div>
+            <div style="padding:6px 12px; background:rgba(37,99,235,0.08); border:1px solid rgba(59,130,246,0.3); border-radius:8px; text-align:center;">
+              <div style="font-size:11px; color:#60a5fa; font-weight:600;">THEORY</div>
+              <div style="font-size:16px; font-weight:800; color:#60a5fa;">${theoryCount}</div>
+            </div>
+            <div style="padding:6px 12px; background:rgba(168,85,247,0.08); border:1px solid rgba(168,85,247,0.3); border-radius:8px; text-align:center;">
+              <div style="font-size:11px; color:#c084fc; font-weight:600;">PRACTICAL LABS</div>
+              <div style="font-size:16px; font-weight:800; color:#c084fc;">${labCount}</div>
+            </div>
+            ${libCount > 0 ? `
+              <div style="padding:6px 12px; background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.3); border-radius:8px; text-align:center;">
+                <div style="font-size:11px; color:#fbbf24; font-weight:600;">LIBRARY</div>
+                <div style="font-size:16px; font-weight:800; color:#fbbf24;">${libCount}</div>
+              </div>
+            ` : ''}
+          </div>
+        </div>
+
+        <!-- Master Timetable Grid / Table -->
+        <div class="card" style="padding:0; overflow:hidden; border-radius:12px; border:1px solid var(--border-color);">
           <div style="overflow-x:auto;">
             <table class="table" style="width:100%; border-collapse:collapse; font-size:12.5px;">
               <thead>
-                <tr style="border-bottom:1px solid var(--border-color); background:rgba(255,255,255,0.02); text-align:left; color:var(--text-muted);">
-                  <th style="padding:12px 14px;">Time Window</th>
-                  <th style="padding:12px 14px;">Subject</th>
-                  <th style="padding:12px 14px;">Type</th>
-                  <th style="padding:12px 14px;">Faculty</th>
-                  <th style="padding:12px 14px;">Room</th>
-                  <th style="padding:12px 14px;">Batch</th>
-                  <th style="padding:12px 14px; text-align:center;">Actions</th>
+                <tr style="border-bottom:1px solid var(--border-color); background:rgba(255,255,255,0.03); text-align:left; color:var(--text-muted); font-size:11.5px; text-transform:uppercase; letter-spacing:0.5px;">
+                  <th style="padding:13px 16px;">Period & Timing Window</th>
+                  <th style="padding:13px 16px;">Subject & Course</th>
+                  <th style="padding:13px 16px;">Type</th>
+                  <th style="padding:13px 16px;">Faculty Appointment</th>
+                  <th style="padding:13px 16px;">Classroom / Lab</th>
+                  <th style="padding:13px 16px;">Student Batch</th>
+                  <th style="padding:13px 16px; text-align:center;">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 ${slots.length === 0 ? `
-                  <tr><td colspan="7" style="padding:24px; text-align:center; color:var(--text-muted);">No classes scheduled on ${selectedDay}.</td></tr>
-                ` : slots.map(s => `
-                  <tr style="border-bottom:1px solid var(--border-color);">
-                    <td style="padding:11px 14px; font-weight:700; color:#38bdf8;">${s.start_time} - ${s.end_time}</td>
-                    <td style="padding:11px 14px; font-weight:800; color:var(--text-primary);">${s.subject}</td>
-                    <td style="padding:11px 14px;">
-                      ${s.is_lab ? '<span class="badge" style="background:#a855f7; color:#fff; font-size:9.5px;">LAB</span>' : '<span class="badge" style="background:#2563eb; color:#fff; font-size:9.5px;">THEORY</span>'}
-                    </td>
-                    <td style="padding:11px 14px; color:var(--text-secondary);">${s.teacher_name || s.teacher}</td>
-                    <td style="padding:11px 14px; font-weight:700;">${s.room}</td>
-                    <td style="padding:11px 14px; color:var(--text-muted);">${s.batch}</td>
-                    <td style="padding:11px 14px; text-align:center;">
-                      <button class="icon-btn" onclick="HodApp.deleteTimetableSlot(${s.id}, '${selectedDay}')" style="width:28px; height:28px; color:#ef4444;" title="Delete Slot">🗑️</button>
-                    </td>
-                  </tr>
-                `).join('')}
+                  <tr><td colspan="7" style="padding:36px; text-align:center; color:var(--text-muted); font-size:13px;">No classes scheduled on ${dayToUse}. Click <strong>Add Class Slot</strong> to configure periods.</td></tr>
+                ` : (() => {
+                  let html = '';
+                  let lunchInserted = false;
+                  let recessInserted = false;
+
+                  slots.forEach((s, idx) => {
+                    const startMin = HodApp.getSortMinutes(s.start_time);
+                    const isLive = HodApp.isCurrentSlot(s.start_time, s.end_time, dayToUse);
+
+                    // Insert Institutional Lunch Break Banner between morning periods (11:20) and afternoon (12:20)
+                    if (!lunchInserted && startMin >= 740) { // 12:20 PM is 740 min
+                      html += `
+                        <tr style="background:linear-gradient(90deg, rgba(245,158,11,0.09) 0%, rgba(245,158,11,0.02) 100%); border-top:1px dashed rgba(245,158,11,0.3); border-bottom:1px dashed rgba(245,158,11,0.3);">
+                          <td colspan="7" style="padding:10px 18px;">
+                            <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+                              <div style="display:flex; align-items:center; gap:8px;">
+                                <span style="font-size:16px;">🍱</span>
+                                <span style="font-weight:800; color:#f59e0b; font-size:12.5px;">INSTITUTIONAL LUNCH & REFRESHMENT BREAK</span>
+                                <span style="font-size:11.5px; color:var(--text-secondary); font-weight:600;">(Central Canteen & Student Common Rooms)</span>
+                              </div>
+                              <span class="badge" style="background:rgba(245,158,11,0.2); color:#f59e0b; font-weight:800; font-size:11px; padding:3px 10px; border-radius:6px;">
+                                11:20 AM – 12:20 PM • 60 Mins
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                      `;
+                      lunchInserted = true;
+                    }
+
+                    // Insert Short Recess & Lab Transit Banner before late afternoon labs (02:10 - 02:30)
+                    if (!recessInserted && startMin >= 870) { // 02:30 PM is 870 min
+                      html += `
+                        <tr style="background:linear-gradient(90deg, rgba(16,185,129,0.09) 0%, rgba(16,185,129,0.02) 100%); border-top:1px dashed rgba(16,185,129,0.3); border-bottom:1px dashed rgba(16,185,129,0.3);">
+                          <td colspan="7" style="padding:8px 18px;">
+                            <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+                              <div style="display:flex; align-items:center; gap:8px;">
+                                <span style="font-size:15px;">☕</span>
+                                <span style="font-weight:800; color:#10b981; font-size:12px;">SHORT RECESS & LABORATORY TRANSIT</span>
+                              </div>
+                              <span class="badge" style="background:rgba(16,185,129,0.2); color:#10b981; font-weight:800; font-size:10.5px; padding:2px 8px; border-radius:6px;">
+                                02:10 PM – 02:30 PM • 20 Mins
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                      `;
+                      recessInserted = true;
+                    }
+
+                    // Assign standard period label
+                    let periodLabel = `Period ${idx + 1}`;
+                    if (startMin <= 580) periodLabel = 'Period 1';
+                    else if (startMin <= 630) periodLabel = 'Period 2';
+                    else if (startMin >= 730 && startMin <= 750) periodLabel = s.is_lab ? 'Lab Session (P3-P4)' : 'Period 3';
+                    else if (startMin >= 790 && startMin <= 800) periodLabel = 'Period 4';
+                    else if (startMin >= 860) periodLabel = s.is_lab ? 'Lab Session (P5-P6)' : 'Period 5';
+
+                    const isLibrary = String(s.subject).toUpperCase().includes('LIBRARY');
+                    const hasRoomOverride = Boolean(s.override_type || (s.effective_room && s.effective_room !== s.room));
+
+                    html += `
+                      <tr style="border-bottom:1px solid var(--border-color); background:${isLive ? 'rgba(16,185,129,0.05)' : 'transparent'};">
+                        
+                        <!-- Timing & Period Window -->
+                        <td style="padding:14px 16px;">
+                          <div style="display:flex; flex-direction:column; gap:4px;">
+                            <div style="display:flex; align-items:center; gap:6px;">
+                              <span class="badge" style="background:rgba(56,189,248,0.15); color:#38bdf8; font-size:10px; font-weight:800; padding:2px 6px; border-radius:4px;">
+                                ${periodLabel}
+                              </span>
+                              ${isLive ? `<span class="badge" style="background:#10b981; color:#fff; font-size:9px; font-weight:800; padding:2px 6px; border-radius:4px;">● LIVE</span>` : ''}
+                            </div>
+                            <div style="font-weight:800; color:var(--text-primary); font-size:13px; letter-spacing:0.2px;">
+                              ${HodApp.formatTimeRange(s.start_time, s.end_time)}
+                            </div>
+                          </div>
+                        </td>
+
+                        <!-- Subject -->
+                        <td style="padding:14px 16px;">
+                          <div style="font-weight:800; color:var(--text-primary); font-size:14px;">${s.subject}</div>
+                          <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Division 3CYBER7 • B.Tech CSE</div>
+                        </td>
+
+                        <!-- Type Badge -->
+                        <td style="padding:14px 16px;">
+                          ${s.is_lab ? `
+                            <span class="badge" style="background:rgba(168,85,247,0.15); color:#c084fc; border:1px solid rgba(168,85,247,0.3); font-size:10px; font-weight:800; padding:3px 8px; border-radius:6px;">
+                              🔬 LAB SESSION
+                            </span>
+                          ` : (isLibrary ? `
+                            <span class="badge" style="background:rgba(245,158,11,0.15); color:#fbbf24; border:1px solid rgba(245,158,11,0.3); font-size:10px; font-weight:800; padding:3px 8px; border-radius:6px;">
+                              📖 LIBRARY
+                            </span>
+                          ` : `
+                            <span class="badge" style="background:rgba(37,99,235,0.15); color:#60a5fa; border:1px solid rgba(59,130,246,0.3); font-size:10px; font-weight:800; padding:3px 8px; border-radius:6px;">
+                              📘 THEORY
+                            </span>
+                          `)}
+                        </td>
+
+                        <!-- Faculty Appointment -->
+                        <td style="padding:14px 16px;">
+                          <div style="display:flex; align-items:center; gap:8px;">
+                            <div style="width:26px; height:26px; border-radius:50%; background:rgba(255,255,255,0.06); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:800; color:var(--text-secondary); flex-shrink:0;">
+                              👨‍🏫
+                            </div>
+                            <div>
+                              <div style="font-weight:700; color:var(--text-primary); font-size:12.5px;">
+                                ${s.effective_teacher || s.teacher_name || s.teacher || 'Department Faculty'}
+                              </div>
+                              ${s.new_teacher ? `<span class="badge" style="background:#f59e0b; color:#fff; font-size:8.5px; padding:1px 4px; font-weight:700;">Substitute</span>` : ''}
+                            </div>
+                          </div>
+                        </td>
+
+                        <!-- Classroom / Lab Room -->
+                        <td style="padding:14px 16px;">
+                          <div style="display:flex; align-items:center; gap:6px;">
+                            <span style="font-size:14px;">📍</span>
+                            <span style="font-weight:800; color:var(--text-primary); font-size:13px;">${s.effective_room || s.room}</span>
+                          </div>
+                          ${hasRoomOverride ? `
+                            <div style="margin-top:2px;">
+                              <span class="badge" style="background:rgba(239,68,68,0.15); color:#ef4444; border:1px solid rgba(239,68,68,0.3); font-size:9.5px; font-weight:800; padding:1px 5px;">
+                                SHIFTED (Orig: ${s.room})
+                              </span>
+                            </div>
+                          ` : ''}
+                        </td>
+
+                        <!-- Batch -->
+                        <td style="padding:14px 16px;">
+                          ${s.batch === 'Both' ? `
+                            <span class="badge" style="background:rgba(255,255,255,0.05); color:var(--text-secondary); font-size:11px; padding:3px 8px; border-radius:6px; font-weight:600;">
+                              Both (Entire Class)
+                            </span>
+                          ` : `
+                            <span class="badge" style="background:rgba(14,165,233,0.15); color:#38bdf8; font-size:11px; font-weight:800; padding:3px 8px; border-radius:6px;">
+                              ${s.batch}
+                            </span>
+                          `}
+                        </td>
+
+                        <!-- Action Buttons -->
+                        <td style="padding:14px 16px; text-align:center;">
+                          <div style="display:inline-flex; align-items:center; gap:6px;">
+                            <button class="icon-btn" onclick="HodApp.openEditTimetableModal(${s.id}, '${dayToUse}')" style="width:30px; height:30px; border-radius:6px; background:rgba(255,255,255,0.04); border:1px solid var(--border-color); color:var(--text-primary); cursor:pointer;" title="Edit Slot Details">
+                              ✏️
+                            </button>
+                            <button class="icon-btn" onclick="HodApp.openRoomOverrideModal(${s.id}, '${dayToUse}')" style="width:30px; height:30px; border-radius:6px; background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.3); color:#f59e0b; cursor:pointer;" title="Temporary Room Relocation">
+                              🔄
+                            </button>
+                            <button class="icon-btn" onclick="HodApp.deleteTimetableSlot(${s.id}, '${dayToUse}')" style="width:30px; height:30px; border-radius:6px; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); color:#ef4444; cursor:pointer;" title="Delete Slot">
+                              🗑️
+                            </button>
+                          </div>
+                        </td>
+
+                      </tr>
+                    `;
+                  });
+
+                  return html;
+                })()}
               </tbody>
             </table>
           </div>
@@ -1744,39 +2488,88 @@ const HodApp = {
     `;
   },
 
+  // Helper to prefill standard period preset
+  setPeriodPreset(prefix, preset) {
+    const startInput = document.getElementById(`${prefix}-tt-start`);
+    const endInput = document.getElementById(`${prefix}-tt-end`);
+    const isLabInput = document.getElementById(`${prefix}-tt-islab`);
+    if (!startInput || !endInput) return;
+
+    if (preset === 1) {
+      startInput.value = '09:30';
+      endInput.value = '10:25';
+      if (isLabInput) isLabInput.value = '0';
+    } else if (preset === 2) {
+      startInput.value = '10:25';
+      endInput.value = '11:20';
+      if (isLabInput) isLabInput.value = '0';
+    } else if (preset === 3) {
+      startInput.value = '12:20';
+      endInput.value = '01:15';
+      if (isLabInput) isLabInput.value = '0';
+    } else if (preset === 4) {
+      startInput.value = '01:15';
+      endInput.value = '02:10';
+      if (isLabInput) isLabInput.value = '0';
+    } else if (preset === 'lab') {
+      startInput.value = '02:30';
+      endInput.value = '04:20';
+      if (isLabInput) isLabInput.value = '1';
+    } else if (preset === 'mlab') {
+      startInput.value = '12:20';
+      endInput.value = '02:10';
+      if (isLabInput) isLabInput.value = '1';
+    }
+  },
+
   openAddTimetableModal(day) {
     this.openModal(`
-      <div style="padding:22px; max-width:520px; width:100%;">
+      <div style="padding:22px; max-width:560px; width:100%;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-          <h3 style="font-size:16px; font-weight:800; margin:0;">➕ Add Timetable Slot (${day})</h3>
-          <button class="icon-btn" onclick="HodApp.closeModal()" style="width:28px; height:28px;">✕</button>
+          <div>
+            <h3 style="font-size:16px; font-weight:800; margin:0;">➕ Add Timetable Slot (${day})</h3>
+            <span style="font-size:11.5px; color:var(--text-muted);">Standard schedule begins at 09:30 AM</span>
+          </div>
+          <button class="icon-btn" onclick="HodApp.closeModal()" style="width:28px; height:28px; cursor:pointer;">✕</button>
+        </div>
+
+        <!-- Quick Preset Period Selection Bar -->
+        <div style="margin-bottom:14px; background:rgba(255,255,255,0.03); padding:8px 10px; border-radius:8px; border:1px solid var(--border-color);">
+          <div style="font-size:11px; font-weight:700; color:var(--text-muted); margin-bottom:6px;">QUICK PERIOD PRESETS:</div>
+          <div style="display:flex; gap:6px; flex-wrap:wrap;">
+            <button type="button" class="btn-sec" onclick="HodApp.setPeriodPreset('add', 1)" style="padding:3px 8px; font-size:11px;">P1 (09:30-10:25)</button>
+            <button type="button" class="btn-sec" onclick="HodApp.setPeriodPreset('add', 2)" style="padding:3px 8px; font-size:11px;">P2 (10:25-11:20)</button>
+            <button type="button" class="btn-sec" onclick="HodApp.setPeriodPreset('add', 3)" style="padding:3px 8px; font-size:11px;">P3 (12:20-01:15)</button>
+            <button type="button" class="btn-sec" onclick="HodApp.setPeriodPreset('add', 4)" style="padding:3px 8px; font-size:11px;">P4 (01:15-02:10)</button>
+            <button type="button" class="btn-sec" onclick="HodApp.setPeriodPreset('add', 'lab')" style="padding:3px 8px; font-size:11px; color:#c084fc;">Lab (02:30-04:20)</button>
+          </div>
         </div>
 
         <form onsubmit="event.preventDefault(); HodApp.submitNewTimetableSlot('${day}');">
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
             <div class="form-group">
               <label class="form-label">Start Time *</label>
-              <input type="time" id="add-tt-start" class="form-control" value="09:30" required />
+              <input type="text" id="add-tt-start" class="form-control" value="09:30" placeholder="e.g. 09:30" required />
             </div>
             <div class="form-group">
               <label class="form-label">End Time *</label>
-              <input type="time" id="add-tt-end" class="form-control" value="10:25" required />
+              <input type="text" id="add-tt-end" class="form-control" value="10:25" placeholder="e.g. 10:25" required />
             </div>
           </div>
 
           <div class="form-group">
             <label class="form-label">Subject *</label>
-            <input type="text" id="add-tt-sub" class="form-control" placeholder="e.g. DBMS or NCS Lab" required />
+            <input type="text" id="add-tt-sub" class="form-control" placeholder="e.g. DBMS, COMA, DM or DBMS Lab" required />
           </div>
 
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
             <div class="form-group">
               <label class="form-label">Faculty Name / Code</label>
-              <input type="text" id="add-tt-teacher" class="form-control" placeholder="e.g. NW" />
+              <input type="text" id="add-tt-teacher" class="form-control" placeholder="e.g. NW, SPB, RAP" />
             </div>
             <div class="form-group">
               <label class="form-label">Room / Lab No *</label>
-              <input type="text" id="add-tt-room" class="form-control" placeholder="e.g. NB-202" required />
+              <input type="text" id="add-tt-room" class="form-control" placeholder="e.g. NB-204 or L-311" required />
             </div>
           </div>
 
@@ -1808,11 +2601,11 @@ const HodApp = {
   },
 
   async submitNewTimetableSlot(day) {
-    const start_time = document.getElementById('add-tt-start')?.value;
-    const end_time = document.getElementById('add-tt-end')?.value;
-    const subject = document.getElementById('add-tt-sub')?.value.trim();
-    const teacher = document.getElementById('add-tt-teacher')?.value.trim();
-    const room = document.getElementById('add-tt-room')?.value.trim();
+    const start_time = document.getElementById('add-tt-start')?.value?.trim();
+    const end_time = document.getElementById('add-tt-end')?.value?.trim();
+    const subject = document.getElementById('add-tt-sub')?.value?.trim();
+    const teacher = document.getElementById('add-tt-teacher')?.value?.trim();
+    const room = document.getElementById('add-tt-room')?.value?.trim();
     const batch = document.getElementById('add-tt-batch')?.value;
     const is_lab = parseInt(document.getElementById('add-tt-islab')?.value, 10);
 
@@ -1832,13 +2625,217 @@ const HodApp = {
     }
   },
 
+  openEditTimetableModal(id, day) {
+    const slot = (this.currentTimetableSlots || []).find(s => s.id == id);
+    if (!slot) {
+      this.showToast('Slot details not found.', 'error');
+      return;
+    }
+
+    this.openModal(`
+      <div style="padding:22px; max-width:560px; width:100%;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+          <div>
+            <h3 style="font-size:16px; font-weight:800; margin:0;">✏️ Edit Class Slot (${slot.subject})</h3>
+            <span style="font-size:11.5px; color:var(--text-muted);">${day} • Division 3CYBER7</span>
+          </div>
+          <button class="icon-btn" onclick="HodApp.closeModal()" style="width:28px; height:28px; cursor:pointer;">✕</button>
+        </div>
+
+        <!-- Quick Preset Period Selection Bar -->
+        <div style="margin-bottom:14px; background:rgba(255,255,255,0.03); padding:8px 10px; border-radius:8px; border:1px solid var(--border-color);">
+          <div style="font-size:11px; font-weight:700; color:var(--text-muted); margin-bottom:6px;">QUICK PERIOD PRESETS:</div>
+          <div style="display:flex; gap:6px; flex-wrap:wrap;">
+            <button type="button" class="btn-sec" onclick="HodApp.setPeriodPreset('edit', 1)" style="padding:3px 8px; font-size:11px;">P1 (09:30-10:25)</button>
+            <button type="button" class="btn-sec" onclick="HodApp.setPeriodPreset('edit', 2)" style="padding:3px 8px; font-size:11px;">P2 (10:25-11:20)</button>
+            <button type="button" class="btn-sec" onclick="HodApp.setPeriodPreset('edit', 3)" style="padding:3px 8px; font-size:11px;">P3 (12:20-01:15)</button>
+            <button type="button" class="btn-sec" onclick="HodApp.setPeriodPreset('edit', 4)" style="padding:3px 8px; font-size:11px;">P4 (01:15-02:10)</button>
+            <button type="button" class="btn-sec" onclick="HodApp.setPeriodPreset('edit', 'lab')" style="padding:3px 8px; font-size:11px; color:#c084fc;">Lab (02:30-04:20)</button>
+          </div>
+        </div>
+
+        <form onsubmit="event.preventDefault(); HodApp.submitEditTimetableSlot(${id}, '${day}');">
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <div class="form-group">
+              <label class="form-label">Start Time *</label>
+              <input type="text" id="edit-tt-start" class="form-control" value="${slot.start_time}" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label">End Time *</label>
+              <input type="text" id="edit-tt-end" class="form-control" value="${slot.end_time}" required />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Subject *</label>
+            <input type="text" id="edit-tt-sub" class="form-control" value="${slot.subject}" required />
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <div class="form-group">
+              <label class="form-label">Faculty Name / Code</label>
+              <input type="text" id="edit-tt-teacher" class="form-control" value="${slot.teacher || ''}" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Room / Lab No *</label>
+              <input type="text" id="edit-tt-room" class="form-control" value="${slot.room}" required />
+            </div>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <div class="form-group">
+              <label class="form-label">Batch</label>
+              <select id="edit-tt-batch" class="form-control">
+                <option value="Both" ${slot.batch === 'Both' ? 'selected' : ''}>Both (Entire Class)</option>
+                <option value="Batch 1" ${slot.batch === 'Batch 1' ? 'selected' : ''}>Batch 1</option>
+                <option value="Batch 2" ${slot.batch === 'Batch 2' ? 'selected' : ''}>Batch 2</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Type</label>
+              <select id="edit-tt-islab" class="form-control">
+                <option value="0" ${!slot.is_lab ? 'selected' : ''}>Theory Lecture</option>
+                <option value="1" ${slot.is_lab ? 'selected' : ''}>Laboratory Session</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:18px;">
+            <button type="button" class="btn-sec" onclick="HodApp.closeModal()">Cancel</button>
+            <button type="submit" class="btn-primary" style="padding:8px 18px;">Update Slot</button>
+          </div>
+        </form>
+      </div>
+    `);
+  },
+
+  async submitEditTimetableSlot(id, day) {
+    const start_time = document.getElementById('edit-tt-start')?.value?.trim();
+    const end_time = document.getElementById('edit-tt-end')?.value?.trim();
+    const subject = document.getElementById('edit-tt-sub')?.value?.trim();
+    const teacher = document.getElementById('edit-tt-teacher')?.value?.trim();
+    const room = document.getElementById('edit-tt-room')?.value?.trim();
+    const batch = document.getElementById('edit-tt-batch')?.value;
+    const is_lab = parseInt(document.getElementById('edit-tt-islab')?.value, 10);
+
+    try {
+      const res = await API.updateHodTimetableEntry(id, {
+        start_time, end_time, subject, teacher, room, batch, is_lab
+      });
+      if (res && res.success) {
+        this.showToast('Class slot updated successfully!', 'success');
+        this.closeModal();
+        await this.renderTimetable(day);
+      } else {
+        this.showToast(res?.message || 'Update failed.', 'error');
+      }
+    } catch (e) {
+      this.showToast('Failed to update slot.', 'error');
+    }
+  },
+
+  openRoomOverrideModal(id, day) {
+    const slot = (this.currentTimetableSlots || []).find(s => s.id == id);
+    if (!slot) {
+      this.showToast('Slot not found.', 'error');
+      return;
+    }
+
+    const todayStr = getIndianDateString();
+
+    this.openModal(`
+      <div style="padding:22px; max-width:520px; width:100%;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+          <div>
+            <h3 style="font-size:16px; font-weight:800; margin:0; display:flex; align-items:center; gap:6px;">
+              <span>🔄</span> Class Relocation / Room Change
+            </h3>
+            <span style="font-size:11.5px; color:var(--text-muted);">Assign an alternate room or substitute faculty</span>
+          </div>
+          <button class="icon-btn" onclick="HodApp.closeModal()" style="width:28px; height:28px; cursor:pointer;">✕</button>
+        </div>
+
+        <div style="padding:12px; background:rgba(255,255,255,0.03); border:1px solid var(--border-color); border-radius:8px; margin-bottom:14px;">
+          <div style="font-size:13px; font-weight:800; color:var(--text-primary);">${slot.subject} (${HodApp.formatTimeRange(slot.start_time, slot.end_time)})</div>
+          <div style="font-size:11.5px; color:var(--text-muted); margin-top:2px;">
+            Scheduled Room: <strong>${slot.room}</strong> • Faculty: <strong>${slot.teacher || 'Unassigned'}</strong> • Batch: ${slot.batch}
+          </div>
+        </div>
+
+        <form onsubmit="event.preventDefault(); HodApp.submitRoomOverride(${id}, '${day}');">
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <div class="form-group">
+              <label class="form-label">Override Date *</label>
+              <input type="date" id="ro-date" class="form-control" value="${todayStr}" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label">New Room / Lab *</label>
+              <input type="text" id="ro-new-room" class="form-control" placeholder="e.g. NB-205, L-310" required />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Substitute Faculty (Optional)</label>
+            <input type="text" id="ro-new-teacher" class="form-control" placeholder="Leave empty to keep ${slot.teacher || 'current'}" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Relocation Reason / Administrative Notes *</label>
+            <input type="text" id="ro-reason" class="form-control" placeholder="e.g. Projector maintenance, Air conditioning repair" required />
+          </div>
+
+          <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:18px;">
+            <button type="button" class="btn-sec" onclick="HodApp.closeModal()">Cancel</button>
+            <button type="submit" class="btn-primary" style="padding:8px 18px; background:#f59e0b; border-color:#f59e0b; color:#fff;">
+              Apply Room Change
+            </button>
+          </div>
+        </form>
+      </div>
+    `);
+  },
+
+  async submitRoomOverride(id, day) {
+    const date = document.getElementById('ro-date')?.value;
+    const new_room = document.getElementById('ro-new-room')?.value?.trim();
+    const new_teacher = document.getElementById('ro-new-teacher')?.value?.trim() || null;
+    const reason = document.getElementById('ro-reason')?.value?.trim();
+
+    if (!new_room || !reason) {
+      this.showToast('Please provide new room and reason.', 'error');
+      return;
+    }
+
+    try {
+      const res = await API.createTimetableRoomChange({
+        timetable_id: id,
+        date,
+        new_room,
+        new_teacher,
+        reason
+      });
+
+      if (res && res.success) {
+        this.showToast('Classroom relocation recorded successfully!', 'success');
+        this.closeModal();
+        await this.renderTimetable(day);
+      } else {
+        this.showToast(res?.message || 'Failed to apply relocation.', 'error');
+      }
+    } catch (e) {
+      this.showToast('Error applying room change override.', 'error');
+    }
+  },
+
   async deleteTimetableSlot(id, day) {
-    if (confirm('Delete this timetable slot?')) {
+    if (confirm('Are you sure you want to delete this timetable slot?')) {
       try {
         const res = await API.deleteHodTimetableEntry(id);
         if (res && res.success) {
-          this.showToast('Slot removed.', 'success');
+          this.showToast('Slot removed successfully.', 'success');
           await this.renderTimetable(day);
+        } else {
+          this.showToast(res?.message || 'Failed to remove slot.', 'error');
         }
       } catch (e) {
         this.showToast('Failed to delete slot.', 'error');
@@ -1999,19 +2996,59 @@ const HodApp = {
     `;
   },
 
-  async moderateMarks(subject, exam_name, action) {
-    const remarks = prompt(`Enter comments/remarks for ${action.toLowerCase()}ing marks for ${subject}:`, action === 'APPROVE' ? 'Approved by HOD' : 'Requires revision');
-    if (remarks === null) return;
+  moderateMarks(subject, exam_name, action) {
+    const isApprove = action === 'APPROVE';
+    const color = isApprove ? '#10b981' : '#f59e0b';
+    const icon = isApprove ? '✓' : '↩';
+    const defaultRemark = isApprove ? 'Approved by Head of Department' : 'Marks require moderation & faculty review';
+
+    this.openModal(`
+      <div style="padding:20px; max-width:440px; width:100%; box-sizing:border-box;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+          <h3 style="margin:0; font-size:16px; font-weight:800; display:flex; align-items:center; gap:8px;">
+            <span style="color:${color}; font-size:18px;">${icon}</span>
+            <span>Confirm Marks ${action}</span>
+          </h3>
+          <button onclick="HodApp.closeModal()" style="background:none; border:none; font-size:18px; color:var(--text-muted); cursor:pointer;">✕</button>
+        </div>
+        <p style="font-size:12.5px; color:var(--text-secondary); margin:0 0 14px; line-height:1.4;">
+          Action for <strong>${subject}</strong> (${exam_name || 'Mid-Sem'}):
+        </p>
+        <div class="form-group" style="margin-bottom:16px;">
+          <label class="form-label">Moderation Remarks</label>
+          <input type="text" id="hod-marks-remarks-input" class="form-control" value="${defaultRemark}" placeholder="Enter remarks..." />
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:8px;">
+          <button class="btn-sec" onclick="HodApp.closeModal()" style="padding:8px 14px; font-size:12px;">Cancel</button>
+          <button class="btn-primary" id="hod-confirm-marks-btn" onclick="HodApp.submitModerateMarks('${subject}', '${exam_name}', '${action}')" style="background:${color}; border-color:${color}; padding:8px 16px; font-size:12px; font-weight:700;">
+            ${icon} Confirm ${action}
+          </button>
+        </div>
+      </div>
+    `);
+    setTimeout(() => {
+      document.getElementById('hod-marks-remarks-input')?.focus();
+    }, 100);
+  },
+
+  async submitModerateMarks(subject, exam_name, action) {
+    const input = document.getElementById('hod-marks-remarks-input');
+    const remarks = input ? input.value.trim() : (action === 'APPROVE' ? 'Approved by HOD' : 'Requires revision');
+    const btn = document.getElementById('hod-confirm-marks-btn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Processing...'; }
 
     try {
       const res = await API.reviewHodInternalMarks({ subject, exam_name, action, remarks });
+      this.closeModal();
       if (res && res.success) {
-        this.showToast(res.message || 'Marks status updated!', 'success');
+        this.showToast(res.message || 'Marks status updated successfully!', 'success');
+        await this.refreshPendingCounters();
         await this.renderInternalMarks();
       } else {
         this.showToast(res?.message || 'Operation failed.', 'error');
       }
     } catch (e) {
+      this.closeModal();
       this.showToast('Failed to review internal marks.', 'error');
     }
   },
@@ -2296,14 +3333,17 @@ const HodApp = {
   async renderLeaves() {
     const res = await API.getHodLeaves();
     const leaves = (res && res.leaves) || [];
+    const pendingLeaves = leaves.filter(l => l.status === 'PENDING');
+    const pendingLeavesCount = (res && res.pendingCount !== undefined) ? res.pendingCount : pendingLeaves.length;
+    this.updatePendingBadges(undefined, pendingLeavesCount);
 
     const content = document.getElementById('hod-content-area');
     content.innerHTML = `
       <div style="display:flex; flex-direction:column; gap:20px;">
         
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
-          <span class="badge" style="background:rgba(239,68,68,0.15); color:#f87171; font-size:12px; padding:6px 12px; border-radius:8px; font-weight:700;">
-            ✉️ ${leaves.filter(l => l.status === 'PENDING').length} Pending Leave Applications (${leaves.length} Total)
+          <span class="badge" style="background:rgba(245,158,11,0.15); color:#f59e0b; font-size:12px; padding:6px 12px; border-radius:8px; font-weight:700;">
+            ✉️ ${pendingLeaves.length} Pending Leave Applications (${leaves.length} Total)
           </span>
         </div>
 
@@ -2355,19 +3395,59 @@ const HodApp = {
     `;
   },
 
-  async processLeave(id, action) {
-    const remarks = prompt(`Enter remarks for ${action.toLowerCase()}ing this leave:`, action === 'APPROVED' ? 'Approved by HOD' : 'Institutional exigencies');
-    if (remarks === null) return;
+  processLeave(id, action) {
+    const isApprove = action === 'APPROVED';
+    const color = isApprove ? '#10b981' : '#ef4444';
+    const icon = isApprove ? '✓' : '✕';
+    const defaultRemark = isApprove ? 'Approved by Head of Department' : 'Institutional exigencies / duty requirements';
+
+    this.openModal(`
+      <div style="padding:20px; max-width:440px; width:100%; box-sizing:border-box;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+          <h3 style="margin:0; font-size:16px; font-weight:800; display:flex; align-items:center; gap:8px;">
+            <span style="color:${color}; font-size:18px;">${icon}</span>
+            <span>Confirm ${action} Leave</span>
+          </h3>
+          <button onclick="HodApp.closeModal()" style="background:none; border:none; font-size:18px; color:var(--text-muted); cursor:pointer;">✕</button>
+        </div>
+        <p style="font-size:12.5px; color:var(--text-secondary); margin:0 0 14px; line-height:1.4;">
+          Are you sure you want to mark this leave application as <strong>${action}</strong>? Enter remarks below:
+        </p>
+        <div class="form-group" style="margin-bottom:16px;">
+          <label class="form-label">Official Remarks</label>
+          <input type="text" id="hod-leave-remarks-input" class="form-control" value="${defaultRemark}" placeholder="Enter remarks..." />
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:8px;">
+          <button class="btn-sec" onclick="HodApp.closeModal()" style="padding:8px 14px; font-size:12px;">Cancel</button>
+          <button class="btn-primary" id="hod-confirm-leave-btn" onclick="HodApp.submitLeaveDecision(${id}, '${action}')" style="background:${color}; border-color:${color}; padding:8px 16px; font-size:12px; font-weight:700;">
+            ${icon} Confirm ${action}
+          </button>
+        </div>
+      </div>
+    `);
+    setTimeout(() => {
+      document.getElementById('hod-leave-remarks-input')?.focus();
+    }, 100);
+  },
+
+  async submitLeaveDecision(id, action) {
+    const input = document.getElementById('hod-leave-remarks-input');
+    const remarks = input ? input.value.trim() : (action === 'APPROVED' ? 'Approved by HOD' : 'Institutional exigencies');
+    const btn = document.getElementById('hod-confirm-leave-btn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Processing...'; }
 
     try {
       const res = await API.reviewHodLeave(id, { action, remarks });
+      this.closeModal();
       if (res && res.success) {
-        this.showToast(res.message || 'Leave updated!', 'success');
+        this.showToast(res.message || `Leave application ${action.toLowerCase()} successfully!`, 'success');
+        await this.refreshPendingCounters();
         await this.renderLeaves();
       } else {
         this.showToast(res?.message || 'Failed to update leave.', 'error');
       }
     } catch (e) {
+      this.closeModal();
       this.showToast('Failed to process leave decision.', 'error');
     }
   },
@@ -2630,6 +3710,20 @@ const HodApp = {
     const res = await API.getHodApprovals({ status: filterStatus === 'ALL' ? '' : filterStatus });
     const approvals = (res && res.approvals) || [];
 
+    // Calculate current pending approvals count
+    let pendingCount = (filterStatus === 'PENDING') 
+      ? approvals.length 
+      : ((res && res.pendingCount !== undefined) ? res.pendingCount : this.pendingApprovalsCount);
+    if (filterStatus !== 'PENDING' && (res?.pendingCount === undefined)) {
+      try {
+        const pRes = await API.getHodApprovals({ status: 'PENDING' });
+        if (pRes && Array.isArray(pRes.approvals)) {
+          pendingCount = pRes.approvals.length;
+        }
+      } catch (e) {}
+    }
+    this.updatePendingBadges(pendingCount, undefined);
+
     const content = document.getElementById('hod-content-area');
     content.innerHTML = `
       <div style="display:flex; flex-direction:column; gap:20px;">
@@ -2637,7 +3731,7 @@ const HodApp = {
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
           <div style="display:flex; gap:6px; overflow-x:auto; background:rgba(255,255,255,0.03); padding:4px; border-radius:10px; border:1px solid var(--border-color);">
             <button class="pill-tab ${filterStatus === 'PENDING' ? 'active' : ''}" onclick="HodApp.renderApprovals('PENDING')">
-              ⏳ Pending Items (${this.pendingApprovalsCount})
+              ⏳ Pending Items (${pendingCount || 0})
             </button>
             <button class="pill-tab ${filterStatus === 'APPROVED' ? 'active' : ''}" onclick="HodApp.renderApprovals('APPROVED')">
               ✓ Approved History
@@ -2706,19 +3800,60 @@ const HodApp = {
     `;
   },
 
-  async processApprovalAction(id, action) {
-    const remarks = prompt(`Enter comments/remarks for ${action.toLowerCase()}ing this request:`, action === 'APPROVED' ? 'Approved by HOD' : 'Action required');
-    if (remarks === null) return;
+  processApprovalAction(id, action) {
+    const isApprove = action === 'APPROVED';
+    const isReject = action === 'REJECTED';
+    const color = isApprove ? '#10b981' : (isReject ? '#ef4444' : '#f59e0b');
+    const icon = isApprove ? '✓' : (isReject ? '✕' : '↩');
+    const defaultRemark = isApprove ? 'Approved by Head of Department' : (isReject ? 'Rejected by HOD' : 'Revision required');
+
+    this.openModal(`
+      <div style="padding:20px; max-width:440px; width:100%; box-sizing:border-box;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+          <h3 style="margin:0; font-size:16px; font-weight:800; display:flex; align-items:center; gap:8px;">
+            <span style="color:${color}; font-size:18px;">${icon}</span>
+            <span>Confirm ${action}</span>
+          </h3>
+          <button onclick="HodApp.closeModal()" style="background:none; border:none; font-size:18px; color:var(--text-muted); cursor:pointer;">✕</button>
+        </div>
+        <p style="font-size:12.5px; color:var(--text-secondary); margin:0 0 14px; line-height:1.4;">
+          Are you sure you want to mark this request as <strong>${action}</strong>? Enter remarks below:
+        </p>
+        <div class="form-group" style="margin-bottom:16px;">
+          <label class="form-label">Official Remarks / Comments</label>
+          <input type="text" id="hod-approval-remarks-input" class="form-control" value="${defaultRemark}" placeholder="Enter remarks..." />
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:8px;">
+          <button class="btn-sec" onclick="HodApp.closeModal()" style="padding:8px 14px; font-size:12px;">Cancel</button>
+          <button class="btn-primary" id="hod-confirm-approval-btn" onclick="HodApp.submitApprovalAction(${id}, '${action}')" style="background:${color}; border-color:${color}; padding:8px 16px; font-size:12px; font-weight:700;">
+            ${icon} Confirm ${action}
+          </button>
+        </div>
+      </div>
+    `);
+    setTimeout(() => {
+      document.getElementById('hod-approval-remarks-input')?.focus();
+    }, 100);
+  },
+
+  async submitApprovalAction(id, action) {
+    const input = document.getElementById('hod-approval-remarks-input');
+    const remarks = input ? input.value.trim() : (action === 'APPROVED' ? 'Approved by HOD' : 'Action taken by HOD');
+    const btn = document.getElementById('hod-confirm-approval-btn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Processing...'; }
 
     try {
       const res = await API.processHodApproval(id, { action, remarks });
+      this.closeModal();
       if (res && res.success) {
-        this.showToast(res.message || 'Request processed!', 'success');
+        this.showToast(res.message || `Request ${action.toLowerCase()} successfully!`, 'success');
+        await this.refreshPendingCounters();
         await this.renderApprovals();
       } else {
         this.showToast(res?.message || 'Failed to process request.', 'error');
       }
     } catch (e) {
+      this.closeModal();
       this.showToast('Failed to process approval request.', 'error');
     }
   },
