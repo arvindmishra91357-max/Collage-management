@@ -273,7 +273,7 @@
     (async function initVerification() {
       const container = document.getElementById('verify-content');
       const urlParams = new URLSearchParams(window.location.search);
-      let code = urlParams.get('code');
+      let code = urlParams.get('code') || urlParams.get('token') || urlParams.get('id');
 
       // Also support pathname /verify/:code if rewritten
       if (!code) {
@@ -281,6 +281,20 @@
         const lastPart = parts[parts.length - 1];
         if (lastPart && lastPart !== 'verify' && lastPart !== 'verify-card.html') {
           code = lastPart;
+        }
+      }
+
+      if (code) {
+        code = decodeURIComponent(code).trim();
+        // If code was passed as a full URL or contained query string
+        if (code.includes('code=')) {
+          try {
+            const u = new URL(code);
+            code = u.searchParams.get('code') || code;
+          } catch (e) {
+            const m = code.match(/code=([^&]+)/);
+            if (m) code = decodeURIComponent(m[1]);
+          }
         }
       }
 
@@ -297,7 +311,13 @@
       }
 
       try {
-        const res = await fetch(`/api/id-cards/verify/${encodeURIComponent(code)}`);
+        let apiBase = '';
+        if (typeof window !== 'undefined' && window.location) {
+          if (!window.location.protocol.startsWith('http') || window.location.origin === 'null') {
+            apiBase = 'https://collage-managemnet-1.onrender.com';
+          }
+        }
+        const res = await fetch(`${apiBase}/api/id-cards/verify/${encodeURIComponent(code)}`);
         const data = await res.json();
 
         if (!res.ok || !data.valid) {

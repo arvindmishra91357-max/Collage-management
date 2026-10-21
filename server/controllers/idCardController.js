@@ -17,9 +17,8 @@ function generateCardNumber(ug_id) {
 
 function generateVerificationCode(ug_id) {
   const cleanId = (ug_id || '').trim().toUpperCase();
-  const hexPrefix = Buffer.from(cleanId).toString('hex').substring(0, 8).toUpperCase();
   const randomHex = crypto.randomBytes(4).toString('hex').toUpperCase();
-  return `MGI-VER-${hexPrefix}-${randomHex}`;
+  return `MGI-VER-${cleanId}-${randomHex}`;
 }
 
 function validateStudentRecord(student) {
@@ -693,104 +692,162 @@ async function updateCardStatus(req, res) {
 // 7. Public Instant QR Verification Endpoint (Zero sensitive leaks)
 async function verifyCardByCode(req, res) {
   try {
-    const code = (req.params.code || '').trim();
-    if (!code) {
+    const rawCode = (req.params.code || req.query.code || '').trim();
+    if (!rawCode) {
       return res.status(400).json({ valid: false, message: 'Verification code missing.' });
     }
+
+    let code = decodeURIComponent(rawCode).trim();
 
     // If a smartphone camera / web browser opens this URL directly, redirect to full ID card preview webpage
     if (req.headers.accept && req.headers.accept.includes('text/html') && !req.xhr && req.query.format !== 'json') {
       return res.redirect(`/verify-card.html?code=${encodeURIComponent(code)}`);
     }
 
+    // STEP 1: Direct exact match in student_id_cards
     let record = await db.get(`
-      SELECT c.card_number, c.issue_date, c.valid_until, c.status as card_status,
+      SELECT c.id as card_id, c.card_number, c.issue_date, c.valid_until, c.status as card_status,
              c.qr_verification_code,
-             s.name, s.ug_id, s.roll_number, s.program, s.division, s.batch,
+             s.id as student_id, s.name, s.ug_id, s.roll_number, s.program, s.division, s.batch,
              s.academic_year, s.department, s.year, s.semester, s.profile_photo_url
       FROM student_id_cards c
       JOIN students s ON UPPER(c.ug_id) = UPPER(s.ug_id)
-      WHERE c.qr_verification_code = ? OR UPPER(c.ug_id) = UPPER(?) OR UPPER(c.card_number) = UPPER(?)
+      WHERE UPPER(c.qr_verification_code) = UPPER(?) 
+         OR UPPER(c.ug_id) = UPPER(?) 
+         OR UPPER(c.card_number) = UPPER(?)
     `, [code, code, code]);
 
-    // Fallback resolution: If not in student_id_cards yet, check students table and auto-provision
+    // STEP 2: Pattern extraction if no exact match (handles MGI-VER-{UG_ID}-DEMO, MGI-VER-{UG_ID}, legacy formats)
     if (!record) {
-      let student = await db.get(`
-        SELECT id, ug_id, name, roll_number, phone_number, batch, program, year, semester,
-               division, academic_year, profile_photo_url, department, status
-        FROM students
-        WHERE UPPER(ug_id) = UPPER(?) OR UPPER(roll_number) = UPPER(?)
-      `, [code, code]);
+      let targetUgId = null;
 
-      // If code is in format MGI-VER-{hexPrefix}-{randomOrHash}, try to extract hexPrefix (which is hex of ug_id prefix)
-      if (!student && code.startsWith('MGI-VER-')) {
+      // Check if code contains institutional UG ID pattern: e.g. 26UG033789
+      const ugMatch = code.match(/([0-9]{2}UG[0-9]{6})/i);
+      if (ugMatch) {
+        targetUgId = ugMatch[1].toUpperCase();
+      } else if (code.toUpperCase().startsWith('MGI-VER-')) {
+        // Legacy check: MGI-VER-{hexPrefix}-{randomOrHash}
         const parts = code.split('-');
-        if (parts.length >= 3) {
-          const hex = parts[2];
+        if (parts.length >= 4) {
+          const candHash = parts[3].toUpperCase();
+          const allStuds = await db.query("SELECT ug_id FROM students");
+          for (const s of allStuds) {
+            const h = crypto.createHash('sha256').update(s.ug_id + '_MGI_VERIFY_KEY_2026').digest('hex').substring(0, 8).toUpperCase();
+            if (h === candHash) {
+              targetUgId = s.ug_id.toUpperCase();
+              break;
+            }
+          }
+        }
+        if (!targetUgId && parts.length >= 3 && /^[0-9a-fA-F]+$/.test(parts[2])) {
           try {
-            const decodedPrefix = Buffer.from(hex, 'hex').toString('utf8');
-            if (decodedPrefix && decodedPrefix.length >= 4) {
-              student = await db.get(`
-                SELECT id, ug_id, name, roll_number, phone_number, batch, program, year, semester,
-                       division, academic_year, profile_photo_url, department, status
-                FROM students
-                WHERE UPPER(ug_id) LIKE UPPER(?)
-                LIMIT 1
-              `, [`${decodedPrefix}%`]);
+            const decoded = Buffer.from(parts[2], 'hex').toString('utf8');
+            if (decoded && /^[0-9]{2}UG/i.test(decoded)) {
+              const candidate = await db.get("SELECT ug_id FROM students WHERE UPPER(ug_id) LIKE UPPER(?) LIMIT 1", [`${decoded}%`]);
+              if (candidate) targetUgId = candidate.ug_id.toUpperCase();
             }
           } catch (e) {}
         }
       }
 
-      if (student) {
-        const cardNumber = generateCardNumber(student.ug_id);
-        const cardStatus = 'ACTIVE';
-        const validUntil = DEFAULT_VALIDITY;
-        const issueDate = '2026-08-01';
+      // If a valid student UG ID was recognized
+      if (targetUgId) {
+        // A. Check if card already exists in student_id_cards for this student
+        const existingCard = await db.get(`
+          SELECT c.id as card_id, c.card_number, c.issue_date, c.valid_until, c.status as card_status,
+                 c.qr_verification_code,
+                 s.id as student_id, s.name, s.ug_id, s.roll_number, s.program, s.division, s.batch,
+                 s.academic_year, s.department, s.year, s.semester, s.profile_photo_url
+          FROM student_id_cards c
+          JOIN students s ON UPPER(c.ug_id) = UPPER(s.ug_id)
+          WHERE UPPER(s.ug_id) = UPPER(?)
+        `, [targetUgId]);
 
-        try {
-          await db.run(`
-            INSERT INTO student_id_cards (
-              student_id, ug_id, card_number, issue_date, valid_until,
-              blood_group, emergency_contact, status, qr_verification_code,
-              barcode_value, card_template, flagged_for_review, review_reasons,
-              generated_by_id, generated_by_role, generation_batch_id
-            ) VALUES (?, ?, ?, ?, ?, 'O+', ?, ?, ?, ?, 'STANDARD_3CYBER7', 0, '[]', 'SYSTEM', 'AUTO_VERIFY', 'PROVISION')
-          `, [
-            student.id, student.ug_id, cardNumber, issueDate, validUntil,
-            student.phone_number || null, cardStatus, code, student.ug_id
-          ]);
-        } catch (e) {}
+        if (existingCard) {
+          record = existingCard;
+        } else {
+          // B. If student exists in students table, safely provision their official card
+          const student = await db.get(`
+            SELECT id, ug_id, name, roll_number, phone_number, batch, program, year, semester,
+                   division, academic_year, profile_photo_url, department, status
+            FROM students
+            WHERE UPPER(ug_id) = UPPER(?)
+          `, [targetUgId]);
 
-        record = {
-          card_number: cardNumber,
-          issue_date: issueDate,
-          valid_until: validUntil,
-          card_status: cardStatus,
-          qr_verification_code: code,
-          name: student.name,
-          ug_id: student.ug_id,
-          roll_number: student.roll_number,
-          program: student.program || DEFAULT_PROGRAM,
-          division: student.division || DEFAULT_DIVISION,
-          batch: student.batch || 'Batch 1',
-          academic_year: student.academic_year || DEFAULT_ACADEMIC_YEAR,
-          department: student.department || DEFAULT_DEPARTMENT,
-          year: student.year || '2nd Year',
-          semester: student.semester || '3rd Semester',
-          profile_photo_url: student.profile_photo_url
-        };
+          if (student) {
+            const cardNumber = generateCardNumber(student.ug_id);
+            const cardStatus = student.status === 'ACTIVE' ? 'ACTIVE' : 'PENDING_REVIEW';
+            const validUntil = DEFAULT_VALIDITY;
+            const issueDate = '2026-08-01';
+
+            try {
+              const insertRes = await db.run(`
+                INSERT INTO student_id_cards (
+                  student_id, ug_id, card_number, issue_date, valid_until,
+                  blood_group, emergency_contact, status, qr_verification_code,
+                  barcode_value, card_template, flagged_for_review, review_reasons,
+                  generated_by_id, generated_by_role, generation_batch_id
+                ) VALUES (?, ?, ?, ?, ?, 'O+', ?, ?, ?, ?, 'STANDARD_3CYBER7', 0, '[]', 'SYSTEM', 'AUTO_VERIFY', 'PROVISION')
+              `, [
+                student.id, student.ug_id, cardNumber, issueDate, validUntil,
+                student.phone_number || null, cardStatus, code, student.ug_id
+              ]);
+
+              record = await db.get(`
+                SELECT c.id as card_id, c.card_number, c.issue_date, c.valid_until, c.status as card_status,
+                       c.qr_verification_code,
+                       s.id as student_id, s.name, s.ug_id, s.roll_number, s.program, s.division, s.batch,
+                       s.academic_year, s.department, s.year, s.semester, s.profile_photo_url
+                FROM student_id_cards c
+                JOIN students s ON UPPER(c.ug_id) = UPPER(s.ug_id)
+                WHERE c.id = ?
+              `, [insertRes.id]);
+            } catch (insertErr) {
+              record = await db.get(`
+                SELECT c.id as card_id, c.card_number, c.issue_date, c.valid_until, c.status as card_status,
+                       c.qr_verification_code,
+                       s.id as student_id, s.name, s.ug_id, s.roll_number, s.program, s.division, s.batch,
+                       s.academic_year, s.department, s.year, s.semester, s.profile_photo_url
+                FROM student_id_cards c
+                JOIN students s ON UPPER(c.ug_id) = UPPER(s.ug_id)
+                WHERE UPPER(s.ug_id) = UPPER(?)
+              `, [targetUgId]);
+            }
+          }
+        }
       }
     }
 
+    // STEP 3: If still no institutional record, strictly reject as invalid / counterfeit (HTTP 404)
     if (!record) {
       return res.status(404).json({
         valid: false,
+        status: 'INVALID',
         message: 'No institutional record found matching this verification code. Card may be invalid or counterfeit.'
       });
     }
 
-    const isCardActive = record.card_status === 'ACTIVE';
+    // STEP 4: Genuinely validate card status (ACTIVE vs SUSPENDED vs EXPIRED)
+    let isCardActive = record.card_status === 'ACTIVE';
+    let displayMessage = 'Valid Institutional Student ID Card';
+
+    // Check expiration if valid_until is past
+    if (record.valid_until) {
+      const expiryDate = new Date(record.valid_until);
+      if (!isNaN(expiryDate.getTime()) && expiryDate < new Date()) {
+        isCardActive = false;
+        record.card_status = 'EXPIRED';
+        displayMessage = 'This institutional ID card has EXPIRED.';
+      }
+    }
+
+    if (record.card_status === 'SUSPENDED') {
+      isCardActive = false;
+      displayMessage = 'This credential is SUSPENDED. Please contact HOD Office.';
+    } else if (record.card_status === 'PENDING_REVIEW') {
+      isCardActive = false;
+      displayMessage = 'This ID card is currently PENDING ADMINISTRATIVE REVIEW.';
+    }
 
     res.json({
       valid: isCardActive,
@@ -815,7 +872,7 @@ async function verifyCardByCode(req, res) {
         issue_date: record.issue_date,
         valid_until: record.valid_until
       },
-      message: isCardActive ? 'Valid Institutional Student ID Card' : `This card is currently marked as ${record.card_status}.`
+      message: displayMessage
     });
   } catch (err) {
     console.error('[IDCard verifyCardByCode Error]:', err);

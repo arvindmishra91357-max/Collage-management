@@ -2334,7 +2334,7 @@ const API = {
         blood_group: 'B+',
         emergency_contact: u?.phone_number || '9471750496',
         status: 'ACTIVE',
-        qr_verification_code: `MGI-VER-${u?.ug_id || '26UG033181'}-DEMO`,
+        qr_verification_code: `MGI-VER-${u?.ug_id || '26UG033181'}`,
         barcode_value: u?.ug_id || '26UG033181',
         student: u
       }
@@ -2372,7 +2372,7 @@ const API = {
         blood_group: 'B+',
         emergency_contact: s.phone,
         status: 'ACTIVE',
-        qr_verification_code: `MGI-VER-${s.ug_id}-DEMO`,
+        qr_verification_code: `MGI-VER-${s.ug_id}`,
         barcode_value: s.ug_id
       }
     }));
@@ -2421,7 +2421,7 @@ const API = {
         blood_group: 'O+',
         emergency_contact: s.phone,
         status: 'ACTIVE',
-        qr_verification_code: `MGI-VER-${s.ug_id}-DEMO`,
+        qr_verification_code: `MGI-VER-${s.ug_id}`,
         barcode_value: s.ug_id
       }
     };
@@ -2524,7 +2524,7 @@ const API = {
         blood_group: 'B+',
         emergency_contact: s.phone,
         card_status: 'ACTIVE',
-        qr_verification_code: `MGI-VER-${s.ug_id}-DEMO`,
+        qr_verification_code: `MGI-VER-${s.ug_id}`,
         barcode_value: s.ug_id
       }))
     };

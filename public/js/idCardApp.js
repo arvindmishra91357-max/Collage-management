@@ -54,9 +54,12 @@ const IdCardSystem = {
     imgEl.src = this.getAvatarForStudent({ gender });
   },
 
-  // Generates Public Verification Webpage URL for Smartphone Cameras
   getVerificationUrl(qrVerificationCode, ug_id) {
-    const code = encodeURIComponent(qrVerificationCode || ug_id || 'MGI-DEMO');
+    let raw = (qrVerificationCode || ug_id || '').trim();
+    if (!raw && typeof this._activeStudent === 'object' && this._activeStudent?.ug_id) {
+      raw = this._activeStudent.ug_id;
+    }
+    const code = encodeURIComponent(raw || '26UG033181');
     
     // Check if running on a live public domain (e.g. Render, custom production domain)
     const host = (typeof window !== 'undefined' && window.location && window.location.hostname) ? window.location.hostname.toLowerCase() : '';
@@ -392,7 +395,7 @@ const IdCardSystem = {
         card_number: `MGI-3CYBER7-${student.ug_id}`,
         valid_until: '2028-06-30',
         status: 'ACTIVE',
-        qr_verification_code: `MGI-VER-${student.ug_id}-DEMO`
+        qr_verification_code: `MGI-VER-${student.ug_id}`
       };
 
       // Cache for view switching
@@ -441,7 +444,7 @@ const IdCardSystem = {
           </button>
         </div>
       `;
-      this.mountQrCode(`qr-box-${student.ug_id || 'preview'}`, card.qr_verification_code);
+      this.mountQrCode(`qr-box-${student.ug_id || 'preview'}`, card.qr_verification_code || student.ug_id);
     } else {
       contentBox.innerHTML = `
         ${this.renderSideBySideHTML(student, card, qrId)}
@@ -450,7 +453,7 @@ const IdCardSystem = {
           <span>High-Resolution Digital Credential</span>
         </div>
       `;
-      this.mountQrCode(qrId, card.qr_verification_code);
+      this.mountQrCode(qrId, card.qr_verification_code || student.ug_id);
     }
   },
 
@@ -469,7 +472,7 @@ const IdCardSystem = {
         card_number: `MGI-3CYBER7-${s.ug_id}`,
         valid_until: '2028-06-30',
         status: 'ACTIVE',
-        qr_verification_code: `MGI-VER-${s.ug_id}-DEMO`
+        qr_verification_code: `MGI-VER-${s.ug_id}`
       };
 
       const printWindow = window.open('', '_blank', 'width=900,height=750');
