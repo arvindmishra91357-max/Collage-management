@@ -1,5 +1,6 @@
 require('dotenv').config();
 const path = require('path');
+const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 
 let isPostgres = false;
@@ -1300,6 +1301,31 @@ async function seedInitialData() {
         'PENDING'
       )
     `);
+  }
+
+  // 13. Ensure student_id_cards is populated for all students if table is empty
+  try {
+    const cardCount = await get("SELECT COUNT(*) as c FROM student_id_cards");
+    if (!cardCount || cardCount.c === 0) {
+      const allStudents = await query("SELECT * FROM students");
+      for (const s of allStudents) {
+        const hexUg = Buffer.from(s.ug_id).toString('hex').toUpperCase();
+        const hash = crypto.createHash('sha256').update(s.ug_id + '_MGI_VERIFY_KEY_2026').digest('hex').substring(0, 8).toUpperCase();
+        const qrCode = `MGI-VER-${hexUg.substring(0, 8)}-${hash}`;
+        const cardNum = `MGI-3CYBER7-${s.ug_id}`;
+        await run(`
+          INSERT INTO student_id_cards (
+            student_id, ug_id, card_number, issue_date, valid_until,
+            blood_group, emergency_contact, status, qr_verification_code,
+            barcode_value, card_template, flagged_for_review, review_reasons,
+            generated_by_id, generated_by_role, generation_batch_id
+          ) VALUES (?, ?, ?, '2026-08-01', '2028-06-30', 'O+', ?, 'ACTIVE', ?, ?, 'STANDARD_3CYBER7', 0, '[]', 'SYSTEM_SEED', 'SYSTEM', 'AUTO_SEED')
+        `, [s.id, s.ug_id, cardNum, s.phone_number, qrCode, s.ug_id]);
+      }
+      console.log(`[DB] Auto-seeded active student ID cards for ${allStudents.length} students.`);
+    }
+  } catch (cardSeedErr) {
+    console.warn('[DB] student_id_cards auto-seed notice:', cardSeedErr.message);
   }
 
   console.log('[DB] Database initialization and seed completed!');

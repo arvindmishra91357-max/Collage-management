@@ -703,15 +703,85 @@ async function verifyCardByCode(req, res) {
       return res.redirect(`/verify-card.html?code=${encodeURIComponent(code)}`);
     }
 
-    const record = await db.get(`
+    let record = await db.get(`
       SELECT c.card_number, c.issue_date, c.valid_until, c.status as card_status,
              c.qr_verification_code,
              s.name, s.ug_id, s.roll_number, s.program, s.division, s.batch,
              s.academic_year, s.department, s.year, s.semester, s.profile_photo_url
       FROM student_id_cards c
       JOIN students s ON UPPER(c.ug_id) = UPPER(s.ug_id)
-      WHERE c.qr_verification_code = ?
-    `, [code]);
+      WHERE c.qr_verification_code = ? OR UPPER(c.ug_id) = UPPER(?) OR UPPER(c.card_number) = UPPER(?)
+    `, [code, code, code]);
+
+    // Fallback resolution: If not in student_id_cards yet, check students table and auto-provision
+    if (!record) {
+      let student = await db.get(`
+        SELECT id, ug_id, name, roll_number, phone_number, batch, program, year, semester,
+               division, academic_year, profile_photo_url, department, status
+        FROM students
+        WHERE UPPER(ug_id) = UPPER(?) OR UPPER(roll_number) = UPPER(?)
+      `, [code, code]);
+
+      // If code is in format MGI-VER-{hexPrefix}-{randomOrHash}, try to extract hexPrefix (which is hex of ug_id prefix)
+      if (!student && code.startsWith('MGI-VER-')) {
+        const parts = code.split('-');
+        if (parts.length >= 3) {
+          const hex = parts[2];
+          try {
+            const decodedPrefix = Buffer.from(hex, 'hex').toString('utf8');
+            if (decodedPrefix && decodedPrefix.length >= 4) {
+              student = await db.get(`
+                SELECT id, ug_id, name, roll_number, phone_number, batch, program, year, semester,
+                       division, academic_year, profile_photo_url, department, status
+                FROM students
+                WHERE UPPER(ug_id) LIKE UPPER(?)
+                LIMIT 1
+              `, [`${decodedPrefix}%`]);
+            }
+          } catch (e) {}
+        }
+      }
+
+      if (student) {
+        const cardNumber = generateCardNumber(student.ug_id);
+        const cardStatus = 'ACTIVE';
+        const validUntil = DEFAULT_VALIDITY;
+        const issueDate = '2026-08-01';
+
+        try {
+          await db.run(`
+            INSERT INTO student_id_cards (
+              student_id, ug_id, card_number, issue_date, valid_until,
+              blood_group, emergency_contact, status, qr_verification_code,
+              barcode_value, card_template, flagged_for_review, review_reasons,
+              generated_by_id, generated_by_role, generation_batch_id
+            ) VALUES (?, ?, ?, ?, ?, 'O+', ?, ?, ?, ?, 'STANDARD_3CYBER7', 0, '[]', 'SYSTEM', 'AUTO_VERIFY', 'PROVISION')
+          `, [
+            student.id, student.ug_id, cardNumber, issueDate, validUntil,
+            student.phone_number || null, cardStatus, code, student.ug_id
+          ]);
+        } catch (e) {}
+
+        record = {
+          card_number: cardNumber,
+          issue_date: issueDate,
+          valid_until: validUntil,
+          card_status: cardStatus,
+          qr_verification_code: code,
+          name: student.name,
+          ug_id: student.ug_id,
+          roll_number: student.roll_number,
+          program: student.program || DEFAULT_PROGRAM,
+          division: student.division || DEFAULT_DIVISION,
+          batch: student.batch || 'Batch 1',
+          academic_year: student.academic_year || DEFAULT_ACADEMIC_YEAR,
+          department: student.department || DEFAULT_DEPARTMENT,
+          year: student.year || '2nd Year',
+          semester: student.semester || '3rd Semester',
+          profile_photo_url: student.profile_photo_url
+        };
+      }
+    }
 
     if (!record) {
       return res.status(404).json({

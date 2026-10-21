@@ -55,10 +55,26 @@ const IdCardSystem = {
   },
 
   // Generates Public Verification Webpage URL for Smartphone Cameras
-  getVerificationUrl(qrVerificationCode) {
-    const origin = window.location.origin || '';
-    const code = encodeURIComponent(qrVerificationCode || 'MGI-DEMO');
-    return `${origin}/verify-card.html?code=${code}`;
+  getVerificationUrl(qrVerificationCode, ug_id) {
+    const code = encodeURIComponent(qrVerificationCode || ug_id || 'MGI-DEMO');
+    
+    // Check if running on a live public domain (e.g. Render, custom production domain)
+    const host = (typeof window !== 'undefined' && window.location && window.location.hostname) ? window.location.hostname.toLowerCase() : '';
+    const protocol = (typeof window !== 'undefined' && window.location && window.location.protocol) ? window.location.protocol : '';
+    
+    const isLocalOrPrivate = !host ||
+      host === 'localhost' ||
+      host === '127.0.0.1' ||
+      host === '0.0.0.0' ||
+      host.startsWith('192.168.') ||
+      host.startsWith('10.') ||
+      host.startsWith('172.') ||
+      protocol === 'file:';
+
+    // If local or private, use official live cloud URL so scanning on ANY phone works immediately:
+    const baseUrl = isLocalOrPrivate ? 'https://collage-managemnet-1.onrender.com' : window.location.origin;
+
+    return `${baseUrl}/verify-card.html?code=${code}`;
   },
 
   // Renders Front Face of the ID Card (Roll Number Completely Removed, UG Prominent)
@@ -145,12 +161,13 @@ const IdCardSystem = {
   },
 
   // Renders Back Face of the ID Card (Single Clean QR Code, No Duplicates, No Barcode)
+  // Renders Back Face of the ID Card (Single Clean QR Code, No Duplicates, No Barcode)
   renderCardBackHTML(student, card, qrBoxId, isStatic = false) {
     const s = student || {};
     const c = card || {};
     const ugId = s.ug_id || c.ug_id || '26UG033181';
     const cardNum = c.card_number || `MGI-3CYBER7-${ugId}`;
-    const blood = c.blood_group || s.blood_group || 'O+ (Verified on File)';
+    const blood = c.blood_group || s.blood_group || 'O+';
     const phone = '+91 94717 50496'; // Official college office helpline
 
     const containerClass = isStatic ? 'mgi-id-card-static mgi-id-card-back' : 'mgi-id-card mgi-id-card-back';
@@ -171,16 +188,16 @@ const IdCardSystem = {
         <!-- Middle Grid: Rules + Single Sharp QR Code -->
         <div class="id-card-back-grid">
           <div>
-            <div style="display:flex; gap:16px; margin-bottom:8px; font-size:9px;">
+            <div style="display:flex; gap:14px; margin-bottom:6px; font-size:8.5px;">
               <div><span style="color:#94a3b8;">Blood Grp:</span> <strong style="color:#f8fafc;">${blood}</strong></div>
               <div><span style="color:#94a3b8;">Helpline:</span> <strong style="color:#38bdf8;">${phone}</strong></div>
             </div>
             
             <ul class="id-card-instructions">
-              <li>This credential is the official property of Mishra Group Institute of Technology.</li>
-              <li>Mandatory for campus gate security, library access, and examination halls.</li>
-              <li>Scan the secure QR code to verify real-time institutional status and enrollment.</li>
-              <li>If found, please return to: Office of HOD, CSE Dept, MGI Tech Campus.</li>
+              <li>Official property of Mishra Group Institute of Technology.</li>
+              <li>Mandatory for campus access, exams & library services.</li>
+              <li>Scan QR code to verify real-time institutional status.</li>
+              <li>If found, return to: Office of HOD, CSE Department.</li>
             </ul>
           </div>
 
@@ -193,9 +210,9 @@ const IdCardSystem = {
           </div>
         </div>
 
-        <!-- Bottom University Contact (Barcode Removed) -->
+        <!-- Bottom University Contact (Clean & Unclipped) -->
         <div class="id-card-back-footer">
-          Campus: Mishra Group Institute Campus, Tech Park • Office: Dean CSE • Helpline: +91 94717 50496
+          Tech Park Campus • Office of Dean CSE • Helpline: +91 94717 50496
         </div>
       </div>
     `;
@@ -260,9 +277,10 @@ const IdCardSystem = {
         try {
           new window.QRCode(el, {
             text: verifyUrl,
-            width: 76,
-            height: 76,
-            colorDark: "#0a1128",
+            width: 160,
+            height: 160,
+            margin: 2,
+            colorDark: "#000000",
             colorLight: "#ffffff",
             correctLevel: window.QRCode.CorrectLevel ? window.QRCode.CorrectLevel.M : 0
           });
@@ -559,9 +577,10 @@ const IdCardSystem = {
               if (el && typeof QRCode !== 'undefined') {
                 new QRCode(el, {
                   text: "${verifyUrl}",
-                  width: 76,
-                  height: 76,
-                  colorDark: "#0a1128",
+                  width: 160,
+                  height: 160,
+                  margin: 2,
+                  colorDark: "#000000",
                   colorLight: "#ffffff",
                   correctLevel: QRCode.CorrectLevel ? QRCode.CorrectLevel.M : 0
                 });
