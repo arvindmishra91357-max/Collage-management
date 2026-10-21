@@ -74,7 +74,7 @@ const HodApp = {
     } else {
       const hash = window.location.hash.replace('#hod-', '').replace('#', '').trim();
       const validSections = [
-        'dashboard', 'profile', 'faculty', 'students', 'subjects',
+        'dashboard', 'profile', 'faculty', 'students', 'id-cards', 'subjects',
         'timetable', 'attendance', 'internal-marks', 'assignments',
         'exams', 'workload', 'leaves', 'mentoring', 'reports', 'approvals'
       ];
@@ -145,6 +145,10 @@ const HodApp = {
             <button class="sidebar-item ${this.currentSection === 'students' ? 'active' : ''}" data-section="students" onclick="HodApp.switchSection('students', event)">
               <span style="font-size:15px; width:22px; text-align:center; flex-shrink:0;">🎓</span>
               <span style="font-size:12.5px; font-weight:600;">Student Management</span>
+            </button>
+            <button class="sidebar-item ${this.currentSection === 'id-cards' ? 'active' : ''}" data-section="id-cards" onclick="HodApp.switchSection('id-cards', event)">
+              <span style="font-size:15px; width:22px; text-align:center; flex-shrink:0;">🪪</span>
+              <span style="font-size:12.5px; font-weight:600;">Student ID Cards</span>
             </button>
             <button class="sidebar-item ${this.currentSection === 'subjects' ? 'active' : ''}" data-section="subjects" onclick="HodApp.switchSection('subjects', event)">
               <span style="font-size:15px; width:22px; text-align:center; flex-shrink:0;">📚</span>
@@ -380,6 +384,10 @@ const HodApp = {
         title: 'Student Management & Roster',
         subtitle: 'Division 3CYBER7 Enrolled Students & Academic Records'
       },
+      'id-cards': {
+        title: 'Student ID Card Management System',
+        subtitle: 'Official Credentials • Batch Issuance, Review & Print'
+      },
       'subjects': {
         title: 'Subject & Curriculum Management',
         subtitle: '3rd Semester Course Allocations & Syllabus Progress'
@@ -457,6 +465,9 @@ const HodApp = {
           break;
         case 'students':
           await this.renderStudents();
+          break;
+        case 'id-cards':
+          await this.renderIdCards();
           break;
         case 'subjects':
           await this.renderSubjects();
@@ -3864,6 +3875,249 @@ const HodApp = {
 
   quickReviewLeave(id, applicant) {
     this.switchSection('leaves');
+  },
+
+  // ==================== STUDENT ID CARD MANAGEMENT (HOD MODULE) ====================
+  async renderIdCards() {
+    if (!this.idCardState) {
+      this.idCardState = { batch: 'All', status: 'ALL', search: '' };
+    }
+
+    const searchInput = document.getElementById('hod-id-search-input');
+    const batchSelect = document.getElementById('hod-id-batch-select');
+    const statusSelect = document.getElementById('hod-id-status-select');
+    if (searchInput) this.idCardState.search = searchInput.value;
+    if (batchSelect) this.idCardState.batch = batchSelect.value;
+    if (statusSelect) this.idCardState.status = statusSelect.value;
+
+    const res = await API.getIdCards({
+      batch: this.idCardState.batch,
+      status: this.idCardState.status,
+      search: this.idCardState.search
+    });
+
+    const students = (res && res.students) || [];
+    const stats = (res && res.stats) || {
+      totalStudents: students.length,
+      totalGenerated: students.filter(s => s.is_generated).length,
+      totalActive: students.filter(s => s.card && s.card.status === 'ACTIVE').length,
+      totalFlagged: students.filter(s => s.card && s.card.flagged_for_review).length,
+      totalNotGenerated: students.filter(s => !s.is_generated).length
+    };
+
+    const content = document.getElementById('hod-content-area');
+    content.innerHTML = `
+      <div style="display:flex; flex-direction:column; gap:20px;">
+        
+        <!-- Header Banner & Stats -->
+        <div class="card glass-card" style="padding:20px; background:linear-gradient(135deg, rgba(14, 165, 233, 0.08) 0%, rgba(99, 102, 241, 0.08) 100%); border:1px solid rgba(56, 189, 248, 0.25);">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:16px;">
+            <div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-size:24px;">🪪</span>
+                <h3 style="font-size:18px; font-weight:800; margin:0;">Student ID Card Management System</h3>
+              </div>
+              <p style="font-size:12.5px; color:var(--text-secondary); margin:4px 0 0;">
+                Official Digital & Physical Identity Verification • Division 3CYBER7 (B.Tech Cyber Security)
+              </p>
+            </div>
+
+            <!-- Bulk Operation Action Buttons -->
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+              <button class="btn-primary" onclick="HodApp.bulkGenerateIdCards('All')" style="padding:8px 16px; font-size:12px; display:inline-flex; align-items:center; gap:6px; border-radius:8px; font-weight:700;">
+                <span>⚡</span> <span>Bulk Issue All (65 Students)</span>
+              </button>
+              <button class="btn-sec" onclick="HodApp.bulkGenerateIdCards('Batch 1')" style="padding:8px 14px; font-size:12px; display:inline-flex; align-items:center; gap:6px; border-radius:8px;">
+                <span>⚡</span> <span>Issue Batch 1</span>
+              </button>
+              <button class="btn-sec" onclick="HodApp.bulkGenerateIdCards('Batch 2')" style="padding:8px 14px; font-size:12px; display:inline-flex; align-items:center; gap:6px; border-radius:8px;">
+                <span>⚡</span> <span>Issue Batch 2</span>
+              </button>
+              <button class="btn-sec" onclick="IdCardSystem.printBatchSheet(HodApp.idCardState.batch || 'All')" style="padding:8px 14px; font-size:12px; display:inline-flex; align-items:center; gap:6px; border-radius:8px; color:#38bdf8; border-color:rgba(56,189,248,0.4);" title="Print A4 sheet with 8 student ID cards">
+                <span>🖨️</span> <span>Batch Print Sheet</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Quick Metrics Bar -->
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:12px; margin-top:18px;">
+            <div style="background:var(--bg-card); padding:12px 14px; border-radius:var(--radius-md); border:1px solid var(--border-color);">
+              <span style="font-size:11px; color:var(--text-muted); font-weight:700; text-transform:uppercase;">Total Enrolled</span>
+              <div style="font-size:22px; font-weight:900; color:var(--text-primary); margin-top:2px;">${stats.totalStudents}</div>
+            </div>
+            <div style="background:var(--bg-card); padding:12px 14px; border-radius:var(--radius-md); border:1px solid var(--border-color);">
+              <span style="font-size:11px; color:#22c55e; font-weight:700; text-transform:uppercase;">Active Cards</span>
+              <div style="font-size:22px; font-weight:900; color:#22c55e; margin-top:2px;">${stats.totalActive}</div>
+            </div>
+            <div style="background:var(--bg-card); padding:12px 14px; border-radius:var(--radius-md); border:1px solid var(--border-color);">
+              <span style="font-size:11px; color:#f59e0b; font-weight:700; text-transform:uppercase;">Flagged / Incomplete</span>
+              <div style="font-size:22px; font-weight:900; color:#f59e0b; margin-top:2px;">${stats.totalFlagged}</div>
+            </div>
+            <div style="background:var(--bg-card); padding:12px 14px; border-radius:var(--radius-md); border:1px solid var(--border-color);">
+              <span style="font-size:11px; color:var(--text-muted); font-weight:700; text-transform:uppercase;">Not Yet Issued</span>
+              <div style="font-size:22px; font-weight:900; color:var(--text-muted); margin-top:2px;">${stats.totalNotGenerated}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Filter & Search Toolbar -->
+        <div class="card" style="padding:14px; display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+          <div style="flex:1; min-width:220px;">
+            <input type="text" id="hod-id-search-input" class="form-control" placeholder="Search by name, roll number, or UG ID..." value="${this.idCardState.search || ''}" onkeydown="if(event.key==='Enter') HodApp.renderIdCards()" style="height:38px; font-size:12.5px;" />
+          </div>
+          <div style="min-width:140px;">
+            <select id="hod-id-batch-select" class="form-control" onchange="HodApp.renderIdCards()" style="height:38px; font-size:12.5px;">
+              <option value="All" ${this.idCardState.batch === 'All' ? 'selected' : ''}>All Batches (65)</option>
+              <option value="Batch 1" ${this.idCardState.batch === 'Batch 1' ? 'selected' : ''}>Batch 1 (Roll 1-30)</option>
+              <option value="Batch 2" ${this.idCardState.batch === 'Batch 2' ? 'selected' : ''}>Batch 2 (Roll 31-66)</option>
+            </select>
+          </div>
+          <div style="min-width:140px;">
+            <select id="hod-id-status-select" class="form-control" onchange="HodApp.renderIdCards()" style="height:38px; font-size:12.5px;">
+              <option value="ALL" ${this.idCardState.status === 'ALL' ? 'selected' : ''}>All Statuses</option>
+              <option value="ACTIVE" ${this.idCardState.status === 'ACTIVE' ? 'selected' : ''}>Active Cards Only</option>
+              <option value="FLAGGED" ${this.idCardState.status === 'FLAGGED' ? 'selected' : ''}>Flagged for Review</option>
+              <option value="NOT_GENERATED" ${this.idCardState.status === 'NOT_GENERATED' ? 'selected' : ''}>Not Yet Issued</option>
+            </select>
+          </div>
+          <button class="btn-primary" onclick="HodApp.renderIdCards()" style="padding:8px 16px; font-size:12px;">Search</button>
+        </div>
+
+        <!-- Student Cards Grid -->
+        ${students.length === 0 ? `
+          <div class="card" style="padding:40px; text-align:center; color:var(--text-muted);">
+            <div style="font-size:36px; margin-bottom:10px;">🔍</div>
+            <h4 style="font-size:15px; font-weight:700; margin:0 0 6px;">No student records found</h4>
+            <p style="font-size:12.5px; margin:0;">Try adjusting your search criteria or batch filter.</p>
+          </div>
+        ` : `
+          <div class="id-card-roster-grid">
+            ${students.map(s => {
+              const hasCard = s.is_generated && s.card;
+              const cardStatus = hasCard ? s.card.status : 'NOT_ISSUED';
+              const isFlagged = hasCard && s.card.flagged_for_review;
+              const reasons = (hasCard && s.card.review_reasons) || [];
+              const photo = IdCardSystem.getPhotoUrl(s.profile_photo_url);
+
+              return `
+                <div class="id-card-roster-item">
+                  <div style="display:flex; align-items:flex-start; gap:12px;">
+                    <div style="width:48px; height:58px; border-radius:6px; overflow:hidden; border:2px solid ${hasCard ? '#38bdf8' : 'var(--border-color)'}; background:#1e293b; flex-shrink:0;">
+                      <img src="${photo}" alt="${s.name}" style="width:100%; height:100%; object-fit:cover;" onerror="this.src='${IdCardSystem.getDefaultAvatarSvg()}';" />
+                    </div>
+                    
+                    <div style="flex:1; min-width:0;">
+                      <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;">
+                        <span style="font-size:11px; font-weight:800; color:#38bdf8;">ROLL #${String(s.roll_number).padStart(2, '0')}</span>
+                        <span class="id-card-status-badge ${cardStatus === 'ACTIVE' ? 'id-card-status-active' : (isFlagged ? 'id-card-status-flagged' : 'id-card-status-pending')}">
+                          ${cardStatus === 'ACTIVE' ? '● ACTIVE' : (isFlagged ? '⚠ REVIEW' : '○ NOT ISSUED')}
+                        </span>
+                      </div>
+                      <h4 style="font-size:13.5px; font-weight:800; margin:3px 0 2px; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${s.name}">${s.name}</h4>
+                      <div style="font-size:11px; color:var(--text-muted); font-family:monospace;">${s.ug_id} • ${s.batch}</div>
+                    </div>
+                  </div>
+
+                  <!-- Flagged notice if any -->
+                  ${isFlagged && reasons.length > 0 ? `
+                    <div style="background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.25); border-radius:6px; padding:6px 10px; font-size:11px; color:#f59e0b;">
+                      <strong>⚠️ Flagged for Review:</strong> ${reasons.join(', ')}
+                    </div>
+                  ` : ''}
+
+                  <!-- Card Metadata details if issued -->
+                  ${hasCard ? `
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; padding:8px 10px; background:rgba(255,255,255,0.02); border-radius:6px; border:1px solid var(--border-color); font-size:11px;">
+                      <div><span style="color:var(--text-muted);">Card #:</span> <strong style="color:var(--text-primary); font-family:monospace; font-size:10px;">${s.card.card_number}</strong></div>
+                      <div><span style="color:var(--text-muted);">Validity:</span> <strong style="color:var(--text-primary); font-size:10px;">${s.card.valid_until}</strong></div>
+                    </div>
+                  ` : `
+                    <div style="padding:8px 10px; background:rgba(255,255,255,0.02); border-radius:6px; border:1px dashed var(--border-color); font-size:11px; color:var(--text-muted); text-align:center;">
+                      No institutional ID card issued yet.
+                    </div>
+                  `}
+
+                  <!-- Action Buttons -->
+                  <div style="display:flex; align-items:center; gap:8px; margin-top:auto; padding-top:8px; border-top:1px solid var(--border-color); flex-wrap:wrap;">
+                    ${hasCard ? `
+                      <button class="btn-primary" onclick="IdCardSystem.openPreviewModal('${s.ug_id}')" style="padding:6px 12px; font-size:11px; flex:1; display:inline-flex; align-items:center; justify-content:center; gap:4px;">
+                        <span>👁️</span> <span>Preview</span>
+                      </button>
+                      <button class="btn-sec" onclick="IdCardSystem.printSingleCard('${s.ug_id}')" style="padding:6px 10px; font-size:11px; display:inline-flex; align-items:center; gap:4px;" title="Print Single ID Card">
+                        <span>🖨️</span>
+                      </button>
+                      <button class="btn-sec" onclick="HodApp.generateSingleIdCard('${s.ug_id}')" style="padding:6px 10px; font-size:11px; display:inline-flex; align-items:center; gap:4px;" title="Refresh / Re-issue Card">
+                        <span>🔄</span>
+                      </button>
+                      <button class="btn-sec" onclick="HodApp.toggleCardStatus(${s.card.id}, '${s.card.status}')" style="padding:6px 10px; font-size:11px; color:${s.card.status === 'ACTIVE' ? '#ef4444' : '#22c55e'};" title="${s.card.status === 'ACTIVE' ? 'Suspend Card' : 'Activate Card'}">
+                        <span>${s.card.status === 'ACTIVE' ? '🚫' : '✓'}</span>
+                      </button>
+                    ` : `
+                      <button class="btn-primary" onclick="HodApp.generateSingleIdCard('${s.ug_id}')" style="padding:6px 14px; font-size:11.5px; width:100%; display:inline-flex; align-items:center; justify-content:center; gap:6px;">
+                        <span>⚡</span> <span>Issue ID Card</span>
+                      </button>
+                    `}
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `}
+      </div>
+    `;
+  },
+
+  async bulkGenerateIdCards(batch = 'All') {
+    if (!confirm(`Are you sure you want to run bulk ID card generation for ${batch}? Existing active cards will be safely reused without duplication.`)) {
+      return;
+    }
+
+    try {
+      this.showToast(`Starting safe bulk ID card generation for ${batch}...`, 'info');
+      const res = await API.bulkGenerateIdCards({ batch, force_regenerate: false });
+      if (res && res.success) {
+        this.showToast(`Bulk issue complete! Generated/Updated: ${res.generatedCount}, Reused: ${res.reusedCount}, Flagged: ${res.flaggedCount}`, 'success');
+        await this.renderIdCards();
+      } else {
+        this.showToast(res?.message || 'Bulk card generation failed.', 'error');
+      }
+    } catch (e) {
+      console.error('[HodApp bulkGenerateIdCards Error]:', e);
+      this.showToast('Bulk generation encountered an error.', 'error');
+    }
+  },
+
+  async generateSingleIdCard(ug_id) {
+    try {
+      this.showToast(`Generating ID card for ${ug_id}...`, 'info');
+      const res = await API.generateSingleIdCard({ ug_id, force_regenerate: true });
+      if (res && res.success) {
+        this.showToast(`ID card successfully generated for ${ug_id}!`, 'success');
+        await this.renderIdCards();
+      } else {
+        this.showToast(res?.message || 'Failed to generate ID card.', 'error');
+      }
+    } catch (e) {
+      console.error('[HodApp generateSingleIdCard Error]:', e);
+      this.showToast('Error generating ID card.', 'error');
+    }
+  },
+
+  async toggleCardStatus(cardId, currentStatus) {
+    const newStatus = currentStatus === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE';
+    if (!confirm(`Are you sure you want to change card status to ${newStatus}?`)) return;
+
+    try {
+      const res = await API.updateIdCardStatus(cardId, { status: newStatus });
+      if (res && res.success) {
+        this.showToast(`Card status updated to ${newStatus}.`, 'success');
+        await this.renderIdCards();
+      } else {
+        this.showToast(res?.message || 'Failed to update status.', 'error');
+      }
+    } catch (e) {
+      this.showToast('Error updating status.', 'error');
+    }
   },
 
   // Modal Dialog Utilities

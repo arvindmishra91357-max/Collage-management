@@ -74,7 +74,7 @@ const TeacherApp = {
       initialSection = forceSection;
     } else {
       const hash = window.location.hash.replace('#teacher-', '').replace('#', '').trim();
-      const validSections = ['dashboard', 'timetable', 'attendance', 'students', 'notes', 'assignments', 'results', 'announcements', 'profile'];
+      const validSections = ['dashboard', 'timetable', 'attendance', 'students', 'id-cards', 'notes', 'assignments', 'results', 'announcements', 'profile'];
       if (validSections.includes(hash)) {
         initialSection = hash;
       }
@@ -136,6 +136,10 @@ const TeacherApp = {
             <button class="sidebar-item ${this.currentSection === 'students' ? 'active' : ''}" data-section="students">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
               My Students
+            </button>
+            <button class="sidebar-item ${this.currentSection === 'id-cards' ? 'active' : ''}" data-section="id-cards">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><circle cx="8" cy="10" r="2"/><path d="M14 8h4M14 12h4M6 16h12"/></svg>
+              Student ID Cards
             </button>
 
             <div class="sidebar-group-title">Course Work & Evaluation</div>
@@ -250,6 +254,7 @@ const TeacherApp = {
           timetable: 'My Teaching Schedule',
           attendance: 'Attendance Management Hub',
           students: 'Enrolled Students Roster',
+          'id-cards': 'Student ID Cards Roster',
           notes: 'Course Notes & Study Materials',
           assignments: 'Assignments & Submissions',
           results: 'Marks & Academic Results',
@@ -299,6 +304,9 @@ const TeacherApp = {
           break;
         case 'students':
           await this.renderStudents();
+          break;
+        case 'id-cards':
+          await this.renderIdCards();
           break;
         case 'notes':
           await this.renderNotes();
@@ -2437,9 +2445,14 @@ const TeacherApp = {
                       ${att}%
                     </span>
                   </div>
-                  <button class="btn-primary" onclick="TeacherApp.openStudentDetails('${s.ug_id}')" style="padding:6px 14px; font-size:11.5px; border-radius:6px; margin:0; display:inline-flex; align-items:center; gap:5px;">
-                    <span>📄</span> <span>More Details</span>
-                  </button>
+                  <div style="display:flex; align-items:center; gap:6px;">
+                    <button class="btn-sec" onclick="IdCardSystem.openPreviewModal('${s.ug_id}')" style="padding:6px 10px; font-size:11.5px; border-radius:6px; margin:0; display:inline-flex; align-items:center; gap:4px;" title="View Student ID Card">
+                      <span>🪪</span> <span>ID Card</span>
+                    </button>
+                    <button class="btn-primary" onclick="TeacherApp.openStudentDetails('${s.ug_id}')" style="padding:6px 14px; font-size:11.5px; border-radius:6px; margin:0; display:inline-flex; align-items:center; gap:5px;">
+                      <span>📄</span> <span>More Details</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             `;
@@ -2493,7 +2506,10 @@ const TeacherApp = {
                       <td>
                         <span class="badge" style="background:rgba(16,185,129,0.1); color:#10b981; font-size:11px;">${s.status || 'Active'}</span>
                       </td>
-                      <td style="text-align:right;">
+                      <td style="text-align:right; white-space:nowrap;">
+                        <button class="btn-sec" onclick="IdCardSystem.openPreviewModal('${s.ug_id}')" style="padding:4px 8px; font-size:11px; margin:0 4px 0 0; display:inline-flex; align-items:center; gap:3px;" title="View Student ID Card">
+                          <span>🪪</span> <span>ID Card</span>
+                        </button>
                         <button class="btn-sec" onclick="TeacherApp.openStudentDetails('${s.ug_id}')" style="padding:4px 12px; font-size:11.5px; margin:0; display:inline-flex; align-items:center; gap:4px;">
                           <span>More Details</span>
                         </button>
@@ -2548,6 +2564,9 @@ const TeacherApp = {
             <span>←</span> <span>Back to Student List</span>
           </button>
           <div style="display:flex; align-items:center; gap:8px;">
+            <button class="btn-primary" onclick="IdCardSystem.openPreviewModal('${s.ug_id}')" style="padding:6px 14px; font-size:12px; margin:0; display:inline-flex; align-items:center; gap:6px;">
+              <span>🪪</span> <span>View ID Card</span>
+            </button>
             <span class="badge" style="background:rgba(56,189,248,0.15); color:#38bdf8; font-size:11.5px; font-weight:700;">
               Authorized Faculty View
             </span>
@@ -3853,6 +3872,215 @@ const TeacherApp = {
       API.setUser(this.currentUser);
     } else {
       App.showToast(res.message || 'Failed to update photo.', 'error');
+    }
+  },
+
+  // ==========================================================================
+  // SECTION: STUDENT ID CARDS (FACULTY SCOPE)
+  // ==========================================================================
+  async renderIdCards() {
+    const container = document.getElementById('teacher-content');
+    if (!container) return;
+    const teacher = this.currentUser || {};
+
+    const teacherBatch = teacher.batch || 'Both';
+    const isRestrictedToBatch1 = teacherBatch === 'Batch 1';
+    const isRestrictedToBatch2 = teacherBatch === 'Batch 2';
+
+    if (!this.idCardState) {
+      this.idCardState = {
+        batch: isRestrictedToBatch1 ? 'Batch 1' : (isRestrictedToBatch2 ? 'Batch 2' : 'All'),
+        search: ''
+      };
+    } else {
+      if (isRestrictedToBatch1) this.idCardState.batch = 'Batch 1';
+      else if (isRestrictedToBatch2) this.idCardState.batch = 'Batch 2';
+    }
+
+    const searchInput = document.getElementById('teacher-id-search-input');
+    const batchSelect = document.getElementById('teacher-id-batch-select');
+    if (searchInput) this.idCardState.search = searchInput.value;
+    if (batchSelect && !isRestrictedToBatch1 && !isRestrictedToBatch2) {
+      this.idCardState.batch = batchSelect.value;
+    }
+
+    container.innerHTML = `
+      <div style="display:flex; justify-content:center; align-items:center; min-height:260px;">
+        <div style="width:30px; height:30px; border:3px solid rgba(255,255,255,0.1); border-top-color:#38bdf8; border-radius:50%; animation:spin 0.8s linear infinite;"></div>
+      </div>
+    `;
+
+    try {
+      const res = await API.getIdCards({
+        batch: this.idCardState.batch,
+        search: this.idCardState.search
+      });
+
+      const students = (res && res.students) || [];
+      const stats = (res && res.stats) || {
+        totalStudents: students.length,
+        totalGenerated: students.filter(s => s.is_generated).length,
+        totalActive: students.filter(s => s.card && s.card.status === 'ACTIVE').length,
+        totalFlagged: students.filter(s => s.card && s.card.flagged_for_review).length,
+        totalNotGenerated: students.filter(s => !s.is_generated).length
+      };
+
+      container.innerHTML = `
+        <div style="display:flex; flex-direction:column; gap:20px;">
+          <!-- Header Banner & Faculty Scope -->
+          <div class="card glass-card" style="padding:20px; background:linear-gradient(135deg, rgba(14, 165, 233, 0.08) 0%, rgba(99, 102, 241, 0.08) 100%); border:1px solid rgba(56, 189, 248, 0.25);">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:16px;">
+              <div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span style="font-size:24px;">🪪</span>
+                  <h3 style="font-size:18px; font-weight:800; margin:0;">Student ID Cards Roster</h3>
+                </div>
+                <p style="font-size:12.5px; color:var(--text-secondary); margin:4px 0 0;">
+                  Authorized Faculty View • Scope: <strong style="color:#38bdf8;">${teacherBatch === 'Both' ? 'Division 3CYBER7 (Both Batches)' : teacherBatch}</strong> • Division 3CYBER7
+                </p>
+              </div>
+
+              <!-- Action Controls -->
+              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                <button class="btn-sec" onclick="IdCardSystem.printBatchSheet(TeacherApp.idCardState.batch || 'All')" style="padding:8px 14px; font-size:12px; display:inline-flex; align-items:center; gap:6px; border-radius:8px; color:#38bdf8; border-color:rgba(56,189,248,0.4);" title="Print A4 sheet for authorized students">
+                  <span>🖨️</span> <span>Batch Print Sheet</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Quick Metrics -->
+            <div style="grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); display:grid; gap:12px; margin-top:18px;">
+              <div style="background:var(--bg-card); padding:12px 14px; border-radius:var(--radius-md); border:1px solid var(--border-color);">
+                <span style="font-size:11px; color:var(--text-muted); font-weight:700; text-transform:uppercase;">In-Scope Students</span>
+                <div style="font-size:22px; font-weight:900; color:var(--text-primary); margin-top:2px;">${stats.totalStudents}</div>
+              </div>
+              <div style="background:var(--bg-card); padding:12px 14px; border-radius:var(--radius-md); border:1px solid var(--border-color);">
+                <span style="font-size:11px; color:#22c55e; font-weight:700; text-transform:uppercase;">Active Cards</span>
+                <div style="font-size:22px; font-weight:900; color:#22c55e; margin-top:2px;">${stats.totalActive}</div>
+              </div>
+              <div style="background:var(--bg-card); padding:12px 14px; border-radius:var(--radius-md); border:1px solid var(--border-color);">
+                <span style="font-size:11px; color:#f59e0b; font-weight:700; text-transform:uppercase;">Under Review</span>
+                <div style="font-size:22px; font-weight:900; color:#f59e0b; margin-top:2px;">${stats.totalFlagged}</div>
+              </div>
+              <div style="background:var(--bg-card); padding:12px 14px; border-radius:var(--radius-md); border:1px solid var(--border-color);">
+                <span style="font-size:11px; color:var(--text-secondary); font-weight:700; text-transform:uppercase;">Not Yet Issued</span>
+                <div style="font-size:22px; font-weight:900; color:var(--text-secondary); margin-top:2px;">${stats.totalNotGenerated}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Filter & Search Controls -->
+          <div class="card" style="padding:16px 20px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+              <div style="display:flex; align-items:center; gap:10px; flex:1; min-width:280px; flex-wrap:wrap;">
+                <input type="text" id="teacher-id-search-input" class="form-control" placeholder="Search by name, roll number, or UG ID..." value="${this.idCardState.search || ''}" onkeydown="if(event.key==='Enter') TeacherApp.renderIdCards()" style="height:38px; font-size:12.5px; flex:1; min-width:200px;" />
+                
+                ${isRestrictedToBatch1 || isRestrictedToBatch2 ? `
+                  <div style="display:inline-flex; align-items:center; gap:6px; padding:6px 12px; background:rgba(56,189,248,0.1); border:1px solid rgba(56,189,248,0.25); border-radius:6px; font-size:12px; font-weight:700; color:#38bdf8;">
+                    <span>🔒 Scope: ${teacherBatch}</span>
+                  </div>
+                ` : `
+                  <select id="teacher-id-batch-select" class="form-control" onchange="TeacherApp.renderIdCards()" style="height:38px; font-size:12.5px; width:150px;">
+                    <option value="All" ${this.idCardState.batch === 'All' ? 'selected' : ''}>All Batches</option>
+                    <option value="Batch 1" ${this.idCardState.batch === 'Batch 1' ? 'selected' : ''}>Batch 1 (1-30)</option>
+                    <option value="Batch 2" ${this.idCardState.batch === 'Batch 2' ? 'selected' : ''}>Batch 2 (31-66)</option>
+                  </select>
+                `}
+                <button class="btn-primary" onclick="TeacherApp.renderIdCards()" style="padding:8px 16px; font-size:12px;">Search</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Cards Grid -->
+          <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:16px;">
+            ${students.length === 0 ? `
+              <div class="card" style="grid-column:1/-1; padding:40px; text-align:center; color:var(--text-muted);">
+                <div style="font-size:36px; margin-bottom:10px;">🔍</div>
+                <div style="font-weight:700; font-size:15px; color:var(--text-primary);">No students found in current scope</div>
+                <p style="font-size:12.5px; margin-top:4px;">Try clearing search or check your authorized batch assignment.</p>
+              </div>
+            ` : students.map(s => {
+              const card = s.card;
+              const isGen = s.is_generated;
+              const status = card ? card.status : 'NOT_ISSUED';
+              const statusColor = status === 'ACTIVE' ? '#10b981' : (status === 'SUSPENDED' ? '#ef4444' : (status === 'PENDING_REVIEW' ? '#f59e0b' : '#64748b'));
+              const statusBg = status === 'ACTIVE' ? 'rgba(16,185,129,0.12)' : (status === 'SUSPENDED' ? 'rgba(239,68,68,0.12)' : (status === 'PENDING_REVIEW' ? 'rgba(245,158,11,0.12)' : 'rgba(100,116,139,0.12)'));
+              const initials = (s.name || 'S').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+              const photoUrl = s.profile_photo_url ? ((API.getFileUrl && !s.profile_photo_url.startsWith('http')) ? API.getFileUrl(s.profile_photo_url) : s.profile_photo_url) : null;
+
+              return `
+                <div class="card id-roster-card" style="padding:16px; border:1px solid var(--border-color); display:flex; flex-direction:column; justify-content:space-between; transition:transform 0.2s, box-shadow 0.2s;">
+                  <div>
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
+                      <div style="display:flex; align-items:center; gap:12px;">
+                        ${photoUrl ? `
+                          <img src="${photoUrl}" alt="${s.name}" style="width:48px; height:48px; border-radius:8px; object-fit:cover; border:1px solid rgba(56,189,248,0.3);" onerror="this.onerror=null; this.parentElement.innerHTML='<div style=\\\'width:48px; height:48px; border-radius:8px; background:linear-gradient(135deg, #1e3a8a, #0ea5e9); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:16px;\\\'>${initials}</div>';" />
+                        ` : `
+                          <div style="width:48px; height:48px; border-radius:8px; background:linear-gradient(135deg, #1e3a8a, #0ea5e9); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:16px;">
+                            ${initials}
+                          </div>
+                        `}
+                        <div>
+                          <div style="font-weight:800; font-size:14px; color:var(--text-primary);">${s.name}</div>
+                          <div style="font-size:11.5px; color:var(--text-muted); display:flex; align-items:center; gap:6px; margin-top:2px;">
+                            <span>Roll: <strong>#${s.roll_number != null ? s.roll_number : 'N/A'}</strong></span>
+                            <span>•</span>
+                            <span>${s.batch || 'Batch'}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <span class="badge" style="background:${statusBg}; color:${statusColor}; font-size:10px; font-weight:800; border:1px solid ${statusColor}40; padding:3px 8px;">
+                        ${status}
+                      </span>
+                    </div>
+
+                    <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border-color); border-radius:6px; padding:8px 10px; font-size:11.5px; display:flex; flex-direction:column; gap:4px;">
+                      <div style="display:flex; justify-content:space-between;">
+                        <span style="color:var(--text-muted);">UG ID:</span>
+                        <code style="font-weight:700; color:#38bdf8;">${s.ug_id}</code>
+                      </div>
+                      <div style="display:flex; justify-content:space-between;">
+                        <span style="color:var(--text-muted);">Card ID Number:</span>
+                        <span style="font-family:monospace; font-weight:600;">${card ? card.card_number : '—'}</span>
+                      </div>
+                      ${card && card.flagged_for_review ? `
+                        <div style="color:#f59e0b; font-size:10.5px; font-weight:600; margin-top:2px; display:flex; align-items:center; gap:4px;">
+                          <span>⚠️ Flagged: ${card.review_reason || 'Incomplete profile'}</span>
+                        </div>
+                      ` : ''}
+                    </div>
+                  </div>
+
+                  <div style="display:flex; align-items:center; justify-content:space-between; gap:6px; margin-top:14px; padding-top:10px; border-top:1px solid var(--border-color);">
+                    <div style="display:flex; align-items:center; gap:6px;">
+                      <button class="btn-primary" onclick="IdCardSystem.openPreviewModal('${s.ug_id}')" style="padding:5px 10px; font-size:11px; display:inline-flex; align-items:center; gap:4px; margin:0;" title="3D Preview ID Card">
+                        <span>🪪</span> <span>Preview</span>
+                      </button>
+                      <button class="btn-sec" onclick="IdCardSystem.printSingleCard('${s.ug_id}')" style="padding:5px 8px; font-size:11px; display:inline-flex; align-items:center; gap:4px; margin:0;" title="Print Student ID Card">
+                        <span>🖨️</span> <span>Print</span>
+                      </button>
+                    </div>
+                    <span style="font-size:11px; color:var(--text-muted);">
+                      ${card ? (card.issue_date || 'Issued') : 'Not Issued'}
+                    </span>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `;
+    } catch (err) {
+      console.error('[TeacherApp] renderIdCards error:', err);
+      container.innerHTML = `
+        <div class="card" style="padding:24px; text-align:center;">
+          <div style="font-size:32px; margin-bottom:10px;">⚠️</div>
+          <h3 style="font-size:16px; font-weight:700; margin-bottom:6px;">Failed to load ID Cards</h3>
+          <p style="color:var(--text-secondary); font-size:13px; margin-bottom:14px;">${err.message || 'Error communicating with server.'}</p>
+          <button class="btn-primary" onclick="TeacherApp.renderIdCards()">Retry</button>
+        </div>
+      `;
     }
   },
 

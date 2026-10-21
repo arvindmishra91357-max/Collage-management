@@ -801,6 +801,10 @@ const StudentApp = {
             <div class="action-icon" style="background:rgba(236,72,153,0.15); color:#f472b6;">🏆</div>
             <div class="action-label">Results</div>
           </div>
+          <div class="action-card" onclick="IdCardSystem.openPreviewModal()">
+            <div class="action-icon" style="background:rgba(14,165,233,0.15); color:#38bdf8;">🪪</div>
+            <div class="action-label">My ID Card</div>
+          </div>
         </div>
       </section>
 
@@ -2447,6 +2451,34 @@ const StudentApp = {
           <div style="grid-column: span 2;"><span style="color:var(--text-muted);">Academic Year:</span> <strong style="color:var(--text-primary);">${profile.academic_year}</strong></div>
         </div>
       </div>
+
+      <!-- Official Digital ID Card Section -->
+      <section style="margin-bottom:20px;">
+        <div class="glass-card" style="padding:18px 20px; background:linear-gradient(135deg, rgba(14, 165, 233, 0.1) 0%, rgba(37, 99, 235, 0.1) 100%); border:1px solid rgba(56, 189, 248, 0.35); border-radius:var(--radius-lg); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px;">
+          <div style="display:flex; align-items:center; gap:14px;">
+            <div style="width:48px; height:48px; border-radius:12px; background:linear-gradient(135deg, #0ea5e9, #2563eb); color:#ffffff; display:flex; align-items:center; justify-content:center; font-size:24px; box-shadow:0 4px 12px rgba(14,165,233,0.3); flex-shrink:0;">
+              🪪
+            </div>
+            <div>
+              <div style="font-weight:800; font-size:15px; color:var(--text-primary); display:flex; align-items:center; gap:6px;">
+                <span>Official Digital ID Card</span>
+                <span class="badge" style="background:rgba(16,185,129,0.15); color:#10b981; font-size:10px; padding:2px 6px;">VERIFIED</span>
+              </div>
+              <p style="font-size:12px; color:var(--text-secondary); margin:2px 0 0;">
+                ISO/IEC 7810 ID-1 standard with secure QR & Code-128 verification
+              </p>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <button class="btn-primary" onclick="IdCardSystem.openPreviewModal()" style="padding:8px 16px; font-size:12.5px; display:inline-flex; align-items:center; gap:6px; font-weight:700; border-radius:8px;">
+              <span>🪪</span> <span>View & Flip Card</span>
+            </button>
+            <button class="btn-sec" onclick="IdCardSystem.printSingleCard()" style="padding:8px 12px; font-size:12.5px; display:inline-flex; align-items:center; gap:6px; border-radius:8px;" title="Print or Save PDF">
+              <span>🖨️</span> <span>Print</span>
+            </button>
+          </div>
+        </div>
+      </section>
 
       <!-- Examination Results & Marksheet Section (Requirement #46, #54) -->
       <section style="margin-bottom:20px;">

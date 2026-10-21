@@ -19,7 +19,7 @@ const AdminApp = {
       initialSection = forceSection;
     } else {
       const hash = window.location.hash.replace('#admin-', '').replace('#', '').trim();
-      const validSubSections = ['students', 'add-student', 'batch-1', 'batch-2', 'teachers', 'timetable-editor', 'academic-uploads', 'assignments-manage', 'results-manage', 'notifications-manage', 'calendar-manage'];
+      const validSubSections = ['students', 'add-student', 'batch-1', 'batch-2', 'id-cards', 'teachers', 'timetable-editor', 'academic-uploads', 'assignments-manage', 'results-manage', 'notifications-manage', 'calendar-manage'];
       // Only keep hash if it is a specific management tool, NEVER default to attendance on refresh or login!
       if (validSubSections.includes(hash)) {
         initialSection = hash;
@@ -110,6 +110,10 @@ const AdminApp = {
             <button class="sidebar-item" data-section="batch-2">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
               Batch 2 (Roll 31+)
+            </button>
+            <button class="sidebar-item" data-section="id-cards">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><circle cx="8" cy="10" r="2"/><path d="M14 8h4M14 12h4M6 16h12"/></svg>
+              Student ID Cards
             </button>
             <button class="sidebar-item" data-section="teachers">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
@@ -240,6 +244,7 @@ const AdminApp = {
       'add-student': 'Create New Student Account',
       'batch-1': 'Batch 1 Students (Roll 1–30)',
       'batch-2': 'Batch 2 Students (Roll 31+)',
+      'id-cards': 'Student ID Card Management System',
       teachers: 'Faculty / Teachers Management (3CYBER7)',
       'qr-attendance': 'Dynamic QR Attendance Control Center',
       'manual-attendance': 'Manual Class Attendance',
@@ -277,6 +282,7 @@ const AdminApp = {
     else if (section === 'add-student') this.renderAddStudentForm(container);
     else if (section === 'batch-1') await this.renderStudentsList(container, 'Batch 1');
     else if (section === 'batch-2') await this.renderStudentsList(container, 'Batch 2');
+    else if (section === 'id-cards') await this.renderIdCards(container);
     else if (section === 'teachers') await this.renderTeachersList(container);
     else if (section === 'qr-attendance') await this.renderQRAttendanceCenter(container);
     else if (section === 'manual-attendance') await this.renderManualAttendance(container);
@@ -543,6 +549,7 @@ const AdminApp = {
                   <td>3CYBER7</td>
                   <td><span style="color:#34d399; font-weight:700; font-size:11px;">● ${s.status}</span></td>
                   <td>
+                    <button class="icon-btn" onclick="IdCardSystem.openPreviewModal('${s.ug_id}')" title="View Student ID Card" style="width:30px; height:30px; display:inline-flex; align-items:center; justify-content:center; color:#38bdf8; background:rgba(56,189,248,0.1); border:1px solid rgba(56,189,248,0.3); border-radius:6px; margin-right:4px;">🪪</button>
                     <button class="icon-btn" onclick="AdminApp.openManageCRModal(${s.id}, '${s.name.replace(/'/g, "\\'")}', ${s.is_cr ? 1 : 0}, '${s.cr_batches || 'Both'}')" title="Manage CR Role & Assigned Batches" style="width:30px; height:30px; display:inline-flex; align-items:center; justify-content:center; color:${s.is_cr === 1 ? '#fbbf24' : 'var(--text-muted)'}; background:${s.is_cr === 1 ? 'rgba(245,158,11,0.15)' : 'rgba(255,255,255,0.05)'}; border:1px solid ${s.is_cr === 1 ? 'rgba(245,158,11,0.4)' : 'var(--border-color)'}; border-radius:6px; margin-right:4px;">👑</button>
                     <button class="icon-btn" onclick="AdminApp.openEditStudentModal(${s.id}, '${s.name.replace(/'/g, "\\'")}', '${s.ug_id}', ${s.roll_number}, ${s.is_cr ? 1 : 0}, '${s.cr_batches || 'Both'}')" title="Edit" style="width:28px; height:28px; display:inline-flex;">✎</button>
                     <button class="icon-btn" onclick="AdminApp.deleteStudentPrompt(${s.id}, '${s.name.replace(/'/g, "\\'")}')" title="Delete" style="width:28px; height:28px; display:inline-flex; color:#f87171;">🗑</button>
@@ -554,6 +561,267 @@ const AdminApp = {
         </div>
       </div>
     `;
+  },
+
+  // ==================== 3.1 STUDENT ID CARD MANAGEMENT (ADMIN) ====================
+  async renderIdCards(container) {
+    if (!container) container = document.getElementById('admin-body-content');
+    if (!container) return;
+
+    if (!this.idCardState) {
+      this.idCardState = { batch: 'All', status: 'ALL', search: '' };
+    }
+
+    const searchInput = document.getElementById('admin-id-search-input');
+    const batchSelect = document.getElementById('admin-id-batch-select');
+    const statusSelect = document.getElementById('admin-id-status-select');
+    if (searchInput) this.idCardState.search = searchInput.value;
+    if (batchSelect) this.idCardState.batch = batchSelect.value;
+    if (statusSelect) this.idCardState.status = statusSelect.value;
+
+    container.innerHTML = `<div style="text-align:center; padding:50px;"><div class="spinner"></div><p style="color:var(--text-muted); margin-top:10px;">Loading student ID cards...</p></div>`;
+
+    try {
+      const res = await API.getIdCards({
+        batch: this.idCardState.batch,
+        status: this.idCardState.status,
+        search: this.idCardState.search
+      });
+
+      const students = (res && res.students) || [];
+      const stats = (res && res.stats) || {
+        totalStudents: students.length,
+        totalGenerated: students.filter(s => s.is_generated).length,
+        totalActive: students.filter(s => s.card && s.card.status === 'ACTIVE').length,
+        totalFlagged: students.filter(s => s.card && s.card.flagged_for_review).length,
+        totalNotGenerated: students.filter(s => !s.is_generated).length
+      };
+
+      container.innerHTML = `
+        <div style="display:flex; flex-direction:column; gap:20px;">
+          <!-- Header Banner -->
+          <div class="glass-card" style="padding:22px; background:linear-gradient(135deg, rgba(14, 165, 233, 0.08) 0%, rgba(99, 102, 241, 0.08) 100%); border:1px solid rgba(56, 189, 248, 0.25);">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:16px;">
+              <div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span style="font-size:24px;">🪪</span>
+                  <h3 style="font-size:18px; font-weight:800; margin:0;">Student ID Card Management System</h3>
+                </div>
+                <p style="font-size:12.5px; color:var(--text-secondary); margin:4px 0 0;">
+                  Administrator Control Panel • Division 3CYBER7 (B.Tech Cyber Security)
+                </p>
+              </div>
+
+              <!-- Bulk Operation Action Buttons -->
+              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                <button class="btn-primary" onclick="AdminApp.bulkGenerateIdCards('All')" style="padding:8px 16px; font-size:12px; display:inline-flex; align-items:center; gap:6px; border-radius:8px; font-weight:700;">
+                  <span>⚡</span> <span>Bulk Issue All</span>
+                </button>
+                <button class="btn-sec" onclick="AdminApp.bulkGenerateIdCards('Batch 1')" style="padding:8px 14px; font-size:12px; display:inline-flex; align-items:center; gap:6px; border-radius:8px;">
+                  <span>⚡</span> <span>Issue Batch 1</span>
+                </button>
+                <button class="btn-sec" onclick="AdminApp.bulkGenerateIdCards('Batch 2')" style="padding:8px 14px; font-size:12px; display:inline-flex; align-items:center; gap:6px; border-radius:8px;">
+                  <span>⚡</span> <span>Issue Batch 2</span>
+                </button>
+                <button class="btn-sec" onclick="IdCardSystem.printBatchSheet(AdminApp.idCardState.batch || 'All')" style="padding:8px 14px; font-size:12px; display:inline-flex; align-items:center; gap:6px; border-radius:8px; color:#38bdf8; border-color:rgba(56,189,248,0.4);" title="Print A4 sheet with 8 student ID cards">
+                  <span>🖨️</span> <span>Batch Print Sheet</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Quick Metrics Bar -->
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:12px; margin-top:18px;">
+              <div style="background:var(--bg-card); padding:12px 14px; border-radius:var(--radius-md); border:1px solid var(--border-color);">
+                <span style="font-size:11px; color:var(--text-muted); font-weight:700; text-transform:uppercase;">Total Enrolled</span>
+                <div style="font-size:22px; font-weight:900; color:var(--text-primary); margin-top:2px;">${stats.totalStudents}</div>
+              </div>
+              <div style="background:var(--bg-card); padding:12px 14px; border-radius:var(--radius-md); border:1px solid var(--border-color);">
+                <span style="font-size:11px; color:#22c55e; font-weight:700; text-transform:uppercase;">Active Cards</span>
+                <div style="font-size:22px; font-weight:900; color:#22c55e; margin-top:2px;">${stats.totalActive}</div>
+              </div>
+              <div style="background:var(--bg-card); padding:12px 14px; border-radius:var(--radius-md); border:1px solid var(--border-color);">
+                <span style="font-size:11px; color:#f59e0b; font-weight:700; text-transform:uppercase;">Pending Review</span>
+                <div style="font-size:22px; font-weight:900; color:#f59e0b; margin-top:2px;">${stats.totalFlagged}</div>
+              </div>
+              <div style="background:var(--bg-card); padding:12px 14px; border-radius:var(--radius-md); border:1px solid var(--border-color);">
+                <span style="font-size:11px; color:var(--text-secondary); font-weight:700; text-transform:uppercase;">Not Generated</span>
+                <div style="font-size:22px; font-weight:900; color:var(--text-secondary); margin-top:2px;">${stats.totalNotGenerated}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Filter & Search Controls -->
+          <div class="glass-card" style="padding:16px 20px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+              <div style="display:flex; align-items:center; gap:10px; flex:1; min-width:280px; flex-wrap:wrap;">
+                <input type="text" id="admin-id-search-input" class="form-control" placeholder="Search by name, roll number, or UG ID..." value="${this.idCardState.search || ''}" onkeydown="if(event.key==='Enter') AdminApp.renderIdCards()" style="height:38px; font-size:12.5px; flex:1; min-width:200px;" />
+                <select id="admin-id-batch-select" class="form-control" onchange="AdminApp.renderIdCards()" style="height:38px; font-size:12.5px; width:150px;">
+                  <option value="All" ${this.idCardState.batch === 'All' ? 'selected' : ''}>All Batches</option>
+                  <option value="Batch 1" ${this.idCardState.batch === 'Batch 1' ? 'selected' : ''}>Batch 1 (1-30)</option>
+                  <option value="Batch 2" ${this.idCardState.batch === 'Batch 2' ? 'selected' : ''}>Batch 2 (31-66)</option>
+                </select>
+                <select id="admin-id-status-select" class="form-control" onchange="AdminApp.renderIdCards()" style="height:38px; font-size:12.5px; width:170px;">
+                  <option value="ALL" ${this.idCardState.status === 'ALL' ? 'selected' : ''}>All Statuses</option>
+                  <option value="ACTIVE" ${this.idCardState.status === 'ACTIVE' ? 'selected' : ''}>Active</option>
+                  <option value="PENDING_REVIEW" ${this.idCardState.status === 'PENDING_REVIEW' ? 'selected' : ''}>Pending Review</option>
+                  <option value="SUSPENDED" ${this.idCardState.status === 'SUSPENDED' ? 'selected' : ''}>Suspended</option>
+                  <option value="NOT_GENERATED" ${this.idCardState.status === 'NOT_GENERATED' ? 'selected' : ''}>Not Generated</option>
+                </select>
+                <button class="btn-primary" onclick="AdminApp.renderIdCards()" style="padding:8px 16px; font-size:12px;">Search</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Cards Roster Grid -->
+          <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:16px;">
+            ${students.length === 0 ? `
+              <div class="glass-card" style="grid-column:1/-1; padding:40px; text-align:center; color:var(--text-muted);">
+                <div style="font-size:36px; margin-bottom:10px;">🔍</div>
+                <div style="font-weight:700; font-size:15px; color:var(--text-primary);">No student records matched the criteria</div>
+                <p style="font-size:12.5px; margin-top:4px;">Try modifying search keywords or batch/status filters.</p>
+              </div>
+            ` : students.map(s => {
+              const card = s.card;
+              const isGen = s.is_generated;
+              const status = card ? card.status : 'NOT_ISSUED';
+              const statusColor = status === 'ACTIVE' ? '#10b981' : (status === 'SUSPENDED' ? '#ef4444' : (status === 'PENDING_REVIEW' ? '#f59e0b' : '#64748b'));
+              const statusBg = status === 'ACTIVE' ? 'rgba(16,185,129,0.12)' : (status === 'SUSPENDED' ? 'rgba(239,68,68,0.12)' : (status === 'PENDING_REVIEW' ? 'rgba(245,158,11,0.12)' : 'rgba(100,116,139,0.12)'));
+              const initials = (s.name || 'S').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+              const photoUrl = s.profile_photo_url ? ((API.getFileUrl && !s.profile_photo_url.startsWith('http')) ? API.getFileUrl(s.profile_photo_url) : s.profile_photo_url) : null;
+
+              return `
+                <div class="glass-card id-roster-card" style="padding:16px; display:flex; flex-direction:column; justify-content:space-between; border:1px solid var(--border-color); transition:transform 0.2s, box-shadow 0.2s;">
+                  <div>
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
+                      <div style="display:flex; align-items:center; gap:12px;">
+                        ${photoUrl ? `
+                          <img src="${photoUrl}" alt="${s.name}" style="width:48px; height:48px; border-radius:8px; object-fit:cover; border:1px solid rgba(56,189,248,0.3);" onerror="this.onerror=null; this.parentElement.innerHTML='<div style=\\\'width:48px; height:48px; border-radius:8px; background:linear-gradient(135deg, #1e3a8a, #0ea5e9); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:16px;\\\'>${initials}</div>';" />
+                        ` : `
+                          <div style="width:48px; height:48px; border-radius:8px; background:linear-gradient(135deg, #1e3a8a, #0ea5e9); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:16px;">
+                            ${initials}
+                          </div>
+                        `}
+                        <div>
+                          <div style="font-weight:800; font-size:14px; color:var(--text-primary);">${s.name}</div>
+                          <div style="font-size:11.5px; color:var(--text-muted); display:flex; align-items:center; gap:6px; margin-top:2px;">
+                            <span>Roll: <strong>#${s.roll_number != null ? s.roll_number : 'N/A'}</strong></span>
+                            <span>•</span>
+                            <span>${s.batch || 'Batch'}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <span class="badge" style="background:${statusBg}; color:${statusColor}; font-size:10px; font-weight:800; border:1px solid ${statusColor}40; padding:3px 8px;">
+                        ${status}
+                      </span>
+                    </div>
+
+                    <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border-color); border-radius:6px; padding:8px 10px; font-size:11.5px; display:flex; flex-direction:column; gap:4px;">
+                      <div style="display:flex; justify-content:space-between;">
+                        <span style="color:var(--text-muted);">UG ID:</span>
+                        <code style="font-weight:700; color:#38bdf8;">${s.ug_id}</code>
+                      </div>
+                      <div style="display:flex; justify-content:space-between;">
+                        <span style="color:var(--text-muted);">Card ID Number:</span>
+                        <span style="font-family:monospace; font-weight:600;">${card ? card.card_number : '—'}</span>
+                      </div>
+                      ${card && card.flagged_for_review ? `
+                        <div style="color:#f59e0b; font-size:10.5px; font-weight:600; margin-top:2px; display:flex; align-items:center; gap:4px;">
+                          <span>⚠️ Flagged: ${card.review_reason || 'Incomplete profile'}</span>
+                        </div>
+                      ` : ''}
+                    </div>
+                  </div>
+
+                  <div style="display:flex; align-items:center; justify-content:space-between; gap:6px; margin-top:14px; padding-top:10px; border-top:1px solid var(--border-color); flex-wrap:wrap;">
+                    <div style="display:flex; align-items:center; gap:6px;">
+                      <button class="btn-primary" onclick="IdCardSystem.openPreviewModal('${s.ug_id}')" style="padding:5px 10px; font-size:11px; display:inline-flex; align-items:center; gap:4px; margin:0;" title="3D Preview ID Card">
+                        <span>🪪</span> <span>Preview</span>
+                      </button>
+                      <button class="btn-sec" onclick="IdCardSystem.printSingleCard('${s.ug_id}')" style="padding:5px 8px; font-size:11px; display:inline-flex; align-items:center; gap:4px; margin:0;" title="Print Student ID Card">
+                        <span>🖨️</span> <span>Print</span>
+                      </button>
+                    </div>
+
+                    <div style="display:flex; align-items:center; gap:6px;">
+                      ${!isGen ? `
+                        <button class="btn-primary" onclick="AdminApp.generateSingleIdCard('${s.ug_id}')" style="padding:5px 10px; font-size:11px; margin:0; background:linear-gradient(135deg, #059669, #10b981);">
+                          Issue Card
+                        </button>
+                      ` : `
+                        <button class="btn-sec" onclick="AdminApp.toggleCardStatus('${s.ug_id}', '${card.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE'}')" style="padding:5px 8px; font-size:11px; margin:0; color:${card.status === 'ACTIVE' ? '#ef4444' : '#10b981'};">
+                          ${card.status === 'ACTIVE' ? 'Suspend' : 'Activate'}
+                        </button>
+                      `}
+                    </div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `;
+    } catch (err) {
+      console.error('[AdminApp] renderIdCards error:', err);
+      container.innerHTML = `
+        <div class="glass-card" style="padding:24px; text-align:center;">
+          <div style="font-size:32px; margin-bottom:10px;">⚠️</div>
+          <h3 style="font-size:16px; font-weight:700; margin-bottom:6px;">Failed to load ID Cards</h3>
+          <p style="color:var(--text-secondary); font-size:13px; margin-bottom:14px;">${err.message || 'Error communicating with server.'}</p>
+          <button class="btn-primary" onclick="AdminApp.renderIdCards()">Retry</button>
+        </div>
+      `;
+    }
+  },
+
+  async bulkGenerateIdCards(batch = 'All') {
+    if (!confirm(`Are you sure you want to run bulk generation for ${batch} students? Existing cards will be safely verified and maintained.`)) {
+      return;
+    }
+    const toast = window.App?.showToast ? (msg, type) => window.App.showToast(msg, type) : alert;
+    try {
+      const res = await API.bulkGenerateIdCards({ batch });
+      if (res && res.success) {
+        toast(`Bulk Generation complete: ${res.generatedCount} issued, ${res.updatedCount} refreshed, ${res.skippedCount} skipped.`, 'success');
+        await this.renderIdCards();
+      } else {
+        toast((res && res.message) || 'Bulk generation error.', 'error');
+      }
+    } catch (e) {
+      toast(e.message || 'Network error during bulk generation.', 'error');
+    }
+  },
+
+  async generateSingleIdCard(ugId) {
+    const toast = window.App?.showToast ? (msg, type) => window.App.showToast(msg, type) : alert;
+    try {
+      const res = await API.generateIdCard(ugId);
+      if (res && res.success) {
+        toast('Card successfully issued/refreshed.', 'success');
+        await this.renderIdCards();
+      } else {
+        toast((res && res.message) || 'Failed to issue card.', 'error');
+      }
+    } catch (e) {
+      toast(e.message || 'Network error issuing card.', 'error');
+    }
+  },
+
+  async toggleCardStatus(ugId, newStatus) {
+    const reason = prompt(`Enter reason for updating card status to ${newStatus}:`, 'Administrative status change');
+    if (!reason) return;
+    const toast = window.App?.showToast ? (msg, type) => window.App.showToast(msg, type) : alert;
+    try {
+      const res = await API.updateIdCardStatus(ugId, newStatus, reason);
+      if (res && res.success) {
+        toast(`Card status set to ${newStatus}`, 'success');
+        await this.renderIdCards();
+      } else {
+        toast((res && res.message) || 'Status update failed.', 'error');
+      }
+    } catch (e) {
+      toast(e.message || 'Network error updating card status.', 'error');
+    }
   },
 
   openManageCRModal(id, name, currentCr, currentBatches = 'Both') {

@@ -28,6 +28,7 @@ const aiCtrl = require('./controllers/aiController');
 const searchCtrl = require('./controllers/searchController');
 const teacherCtrl = require('./controllers/teacherController');
 const hodCtrl = require('./controllers/hodController');
+const idCardCtrl = require('./controllers/idCardController');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -350,6 +351,30 @@ app.get('/api/hod/reports/export', authenticateToken, requireHOD, hodCtrl.export
 // Module 15: Central HOD Approvals Queue
 app.get('/api/hod/approvals', authenticateToken, requireHOD, hodCtrl.getApprovalsQueue);
 app.post('/api/hod/approvals/:id/process', authenticateToken, requireHOD, hodCtrl.processApproval);
+
+// ==================== STUDENT ID CARD MANAGEMENT ROUTES ====================
+// Student self-service: View personal digital ID card
+app.get('/api/id-cards/my', authenticateToken, requireStudent, idCardCtrl.getMyIdCard);
+app.get('/api/id-cards/my-card', authenticateToken, requireStudent, idCardCtrl.getMyIdCard);
+
+// Public instantaneous QR verification endpoint
+app.get('/api/id-cards/verify/:code', idCardCtrl.verifyCardByCode);
+
+// Faculty / HOD / Admin viewing with RBAC boundary enforcement
+app.get('/api/id-cards', authenticateToken, requireTeacherOrAdmin, idCardCtrl.getAllIdCards);
+app.get('/api/id-cards/all', authenticateToken, requireTeacherOrAdmin, idCardCtrl.getAllIdCards);
+app.get('/api/id-cards/student/:ug_id', authenticateToken, idCardCtrl.getStudentIdCard);
+
+// HOD / Teacher / Admin batch print / export dataset (with RBAC batch scope check)
+app.get('/api/id-cards/print-batch', authenticateToken, requireTeacherOrAdmin, idCardCtrl.getBatchPrintData);
+app.get('/api/id-cards/batch-print', authenticateToken, requireTeacherOrAdmin, idCardCtrl.getBatchPrintData);
+
+// HOD / Admin card generation & lifecycle operations
+app.post('/api/id-cards/generate', authenticateToken, requireHOD, idCardCtrl.generateSingleCard);
+app.post('/api/id-cards/generate/:ug_id', authenticateToken, requireHOD, idCardCtrl.generateSingleCard);
+app.post('/api/id-cards/bulk-generate', authenticateToken, requireHOD, idCardCtrl.bulkGenerateCards);
+app.put('/api/id-cards/:id/status', authenticateToken, requireHOD, idCardCtrl.updateCardStatus);
+app.put('/api/id-cards/status/:ug_id', authenticateToken, requireHOD, idCardCtrl.updateCardStatus);
 
 // 11. Admin Dashboard Stats
 app.get('/api/admin/dashboard-stats', authenticateToken, requireAdmin, async (req, res) => {

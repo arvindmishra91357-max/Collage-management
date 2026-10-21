@@ -2311,6 +2311,223 @@ const API = {
     } catch (e) {}
 
     return { success: true, message: `Approval ticket marked as ${action.toLowerCase()} successfully.`, isOffline: true };
+  },
+
+  // ==================== STUDENT ID CARD MANAGEMENT APIS ====================
+  async getMyIdCard() {
+    try {
+      const res = await this.request('/api/id-cards/my');
+      if (res && res.success) return res;
+    } catch (e) {}
+
+    // Offline / fallback for current user
+    const u = this.getUser();
+    return {
+      success: true,
+      issued: true,
+      isOffline: true,
+      card: {
+        id: 1,
+        card_number: `MGI-3CYBER7-${u?.ug_id || '26UG033181'}`,
+        issue_date: '2026-07-15',
+        valid_until: '2028-06-30',
+        blood_group: 'B+',
+        emergency_contact: u?.phone_number || '9471750496',
+        status: 'ACTIVE',
+        qr_verification_code: `MGI-VER-${u?.ug_id || '26UG033181'}-DEMO`,
+        barcode_value: u?.ug_id || '26UG033181',
+        student: u
+      }
+    };
+  },
+
+  async getIdCards(params = {}) {
+    try {
+      const q = new URLSearchParams(params).toString();
+      const res = await this.request(`/api/id-cards${q ? '?' + q : ''}`);
+      if (res && res.success) return res;
+    } catch (e) {}
+
+    // Offline fallback using OFFICIAL_STUDENTS_ROSTER
+    const students = OFFICIAL_STUDENTS_ROSTER.map((s, idx) => ({
+      student_id: s.roll,
+      ug_id: s.ug_id,
+      name: s.name,
+      roll_number: s.roll,
+      phone_number: s.phone,
+      batch: s.batch,
+      program: 'B.Tech Cyber Security',
+      year: '2nd Year',
+      semester: '3rd Semester',
+      division: '3CYBER7',
+      academic_year: '2026-27',
+      department: 'Computer Science & Engineering',
+      student_status: 'ACTIVE',
+      is_generated: true,
+      card: {
+        id: idx + 1,
+        card_number: `MGI-3CYBER7-${s.ug_id}`,
+        issue_date: '2026-07-15',
+        valid_until: '2028-06-30',
+        blood_group: 'B+',
+        emergency_contact: s.phone,
+        status: 'ACTIVE',
+        qr_verification_code: `MGI-VER-${s.ug_id}-DEMO`,
+        barcode_value: s.ug_id
+      }
+    }));
+
+    return {
+      success: true,
+      isOffline: true,
+      stats: {
+        totalStudents: students.length,
+        totalGenerated: students.length,
+        totalActive: students.length,
+        totalFlagged: 0,
+        totalNotGenerated: 0,
+        batch1Count: 30,
+        batch2Count: 35
+      },
+      students
+    };
+  },
+
+  async getStudentIdCard(ug_id) {
+    try {
+      const res = await this.request(`/api/id-cards/student/${encodeURIComponent(ug_id)}`);
+      if (res && res.success) return res;
+    } catch (e) {}
+
+    const s = OFFICIAL_STUDENTS_ROSTER.find(x => x.ug_id.toUpperCase() === ug_id.toUpperCase()) || {
+      ug_id, name: 'Student', roll: 1, batch: 'Batch 1', phone: '9999999999'
+    };
+    return {
+      success: true,
+      isOffline: true,
+      student: {
+        ...s,
+        program: 'B.Tech Cyber Security',
+        division: '3CYBER7',
+        academic_year: '2026-27',
+        department: 'Computer Science & Engineering'
+      },
+      is_generated: true,
+      card: {
+        id: 1,
+        card_number: `MGI-3CYBER7-${s.ug_id}`,
+        issue_date: '2026-07-15',
+        valid_until: '2028-06-30',
+        blood_group: 'O+',
+        emergency_contact: s.phone,
+        status: 'ACTIVE',
+        qr_verification_code: `MGI-VER-${s.ug_id}-DEMO`,
+        barcode_value: s.ug_id
+      }
+    };
+  },
+
+  async generateSingleIdCard(cardData) {
+    try {
+      const res = await this.request('/api/id-cards/generate', {
+        method: 'POST',
+        body: JSON.stringify(cardData)
+      });
+      if (res && res.success) return res;
+    } catch (e) {}
+
+    return {
+      success: true,
+      message: 'Student ID card generated successfully (Offline Demo).',
+      isOffline: true,
+      reused: false
+    };
+  },
+
+  async bulkGenerateIdCards(bulkData) {
+    try {
+      const res = await this.request('/api/id-cards/bulk-generate', {
+        method: 'POST',
+        body: JSON.stringify(bulkData)
+      });
+      if (res && res.success) return res;
+    } catch (e) {}
+
+    return {
+      success: true,
+      message: 'Bulk generation complete (Offline Demo).',
+      isOffline: true,
+      totalStudents: 65,
+      generatedCount: 65,
+      reusedCount: 0,
+      flaggedCount: 0,
+      errorCount: 0
+    };
+  },
+
+  async updateIdCardStatus(id, statusData) {
+    try {
+      const res = await this.request(`/api/id-cards/${id}/status`, {
+        method: 'PUT',
+        body: JSON.stringify(statusData)
+      });
+      if (res && res.success) return res;
+    } catch (e) {}
+
+    return {
+      success: true,
+      message: `ID card status updated (Offline Demo).`,
+      isOffline: true
+    };
+  },
+
+  async verifyIdCardByCode(code) {
+    try {
+      const res = await this.request(`/api/id-cards/verify/${encodeURIComponent(code)}`);
+      return res;
+    } catch (e) {
+      return { valid: false, message: 'Verification service error.' };
+    }
+  },
+
+  async getBatchPrintIdCards(params = {}) {
+    try {
+      const q = new URLSearchParams(params).toString();
+      const res = await this.request(`/api/id-cards/print-batch${q ? '?' + q : ''}`);
+      if (res && res.success) return res;
+    } catch (e) {}
+
+    return {
+      success: true,
+      institution: 'Mishra Group Institute of Technology',
+      department: 'Computer Science & Engineering',
+      division: '3CYBER7',
+      academic_year: '2026-27',
+      totalCards: OFFICIAL_STUDENTS_ROSTER.length,
+      cards: OFFICIAL_STUDENTS_ROSTER.map(s => ({
+        student_id: s.roll,
+        ug_id: s.ug_id,
+        name: s.name,
+        roll_number: s.roll,
+        phone_number: s.phone,
+        batch: s.batch,
+        program: 'B.Tech Cyber Security',
+        year: '2nd Year',
+        semester: '3rd Semester',
+        division: '3CYBER7',
+        academic_year: '2026-27',
+        department: 'Computer Science & Engineering',
+        card_id: s.roll,
+        card_number: `MGI-3CYBER7-${s.ug_id}`,
+        issue_date: '2026-07-15',
+        valid_until: '2028-06-30',
+        blood_group: 'B+',
+        emergency_contact: s.phone,
+        card_status: 'ACTIVE',
+        qr_verification_code: `MGI-VER-${s.ug_id}-DEMO`,
+        barcode_value: s.ug_id
+      }))
+    };
   }
 };
 
