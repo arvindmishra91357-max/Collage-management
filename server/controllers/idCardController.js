@@ -698,11 +698,16 @@ async function verifyCardByCode(req, res) {
       return res.status(400).json({ valid: false, message: 'Verification code missing.' });
     }
 
+    // If a smartphone camera / web browser opens this URL directly, redirect to full ID card preview webpage
+    if (req.headers.accept && req.headers.accept.includes('text/html') && !req.xhr && req.query.format !== 'json') {
+      return res.redirect(`/verify-card.html?code=${encodeURIComponent(code)}`);
+    }
+
     const record = await db.get(`
       SELECT c.card_number, c.issue_date, c.valid_until, c.status as card_status,
              c.qr_verification_code,
              s.name, s.ug_id, s.roll_number, s.program, s.division, s.batch,
-             s.academic_year, s.department
+             s.academic_year, s.department, s.year, s.semester, s.profile_photo_url
       FROM student_id_cards c
       JOIN students s ON UPPER(c.ug_id) = UPPER(s.ug_id)
       WHERE c.qr_verification_code = ?
@@ -730,7 +735,10 @@ async function verifyCardByCode(req, res) {
         name: record.name,
         ug_id: record.ug_id,
         roll_number: record.roll_number,
-        batch: record.batch
+        batch: record.batch,
+        year: record.year,
+        semester: record.semester,
+        profile_photo_url: record.profile_photo_url
       },
       card: {
         card_number: record.card_number,

@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%">
+  <defs>
+    <!-- Background studio glow -->
+    <radialGradient id="neutralBg" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#1e293b"/>
+      <stop offset="60%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#020617"/>
+    </radialGradient>
+
+    <!-- 3D Face Lighting -->
+    <radialGradient id="faceGradNeutral" cx="42%" cy="38%" r="55%">
+      <stop offset="0%" stop-color="#ffd5b3"/>
+      <stop offset="65%" stop-color="#f5b890"/>
+      <stop offset="100%" stop-color="#d98c64"/>
+    </radialGradient>
+
+    <!-- 3D Hair Lighting -->
+    <linearGradient id="hairGradNeutral" x1="20%" y1="0%" x2="80%" y2="100%">
+      <stop offset="0%" stop-color="#3b3b4f"/>
+      <stop offset="40%" stop-color="#212130"/>
+      <stop offset="100%" stop-color="#12121a"/>
+    </linearGradient>
+
+    <!-- 3D Hoodie/Collar -->
+    <linearGradient id="hoodieGradNeutral" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0284c7"/>
+      <stop offset="45%" stop-color="#0369a1"/>
+      <stop offset="100%" stop-color="#075985"/>
+    </linearGradient>
+
+    <!-- Inner shirt -->
+    <linearGradient id="shirtGradNeutral" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#f8fafc"/>
+      <stop offset="100%" stop-color="#cbd5e1"/>
+    </linearGradient>
+
+    <!-- Drop Shadows -->
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#000000" flood-opacity="0.35"/>
+    </filter>
+    <filter id="headShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#020617" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+
+  <!-- Background Canvas -->
+  <rect width="200" height="200" fill="url(#neutralBg)"/>
+  
+  <!-- Subtle Cyan Accent Ring -->
+  <circle cx="100" cy="100" r="92" fill="none" stroke="#38bdf8" stroke-width="1.5" stroke-opacity="0.25" stroke-dasharray="6 4"/>
+
+  <!-- Body / Torso (Modern Collegiate Hoodie) -->
+  <g filter="url(#softShadow)">
+    <path d="M42 165 C45 138, 70 130, 100 130 C130 130, 155 138, 158 165 C160 178, 160 200, 160 200 L40 200 C40 200, 40 178, 42 165 Z" fill="url(#hoodieGradNeutral)"/>
+    
+    <!-- Inner T-Shirt V-Cut -->
+    <path d="M86 130 L114 130 L107 155 C104 160, 96 160, 93 155 Z" fill="url(#shirtGradNeutral)"/>
+    
+    <!-- Hoodie Strings / Collar Detail -->
+    <path d="M78 132 C78 148, 86 165, 88 178" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round" fill="none" stroke-opacity="0.8"/>
+    <path d="M122 132 C122 148, 114 165, 112 178" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round" fill="none" stroke-opacity="0.8"/>
+  </g>
+
+  <!-- Neck -->
+  <path d="M88 114 L112 114 L112 134 C106 137, 94 137, 88 134 Z" fill="#d98c64"/>
+  <path d="M88 114 L112 114 L112 122 C104 125, 96 125, 88 122 Z" fill="#b96d47" opacity="0.35"/>
+
+  <!-- Head / Face Group -->
+  <g filter="url(#headShadow)">
+    <!-- Ears -->
+    <ellipse cx="64" cy="94" rx="7" ry="11" fill="#f5b890"/>
+    <ellipse cx="64" cy="94" rx="4" ry="7" fill="#d98c64" opacity="0.4"/>
+    <ellipse cx="136" cy="94" rx="7" ry="11" fill="#f5b890"/>
+    <ellipse cx="136" cy="94" rx="4" ry="7" fill="#d98c64" opacity="0.4"/>
+
+    <!-- Face Oval -->
+    <path d="M68 84 C68 56, 132 56, 132 84 C132 108, 118 126, 100 126 C82 126, 68 108, 68 84 Z" fill="url(#faceGradNeutral)"/>
+
+    <!-- Eyes (Friendly, 3D Look) -->
+    <ellipse cx="85" cy="88" rx="4.5" ry="5.5" fill="#1e293b"/>
+    <circle cx="86.5" cy="86" r="1.8" fill="#ffffff"/>
+    <ellipse cx="115" cy="88" rx="4.5" ry="5.5" fill="#1e293b"/>
+    <circle cx="116.5" cy="86" r="1.8" fill="#ffffff"/>
+
+    <!-- Eyebrows -->
+    <path d="M78 80 C82 77, 89 77, 93 79" stroke="#4a3528" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+    <path d="M107 79 C111 77, 118 77, 122 80" stroke="#4a3528" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+
+    <!-- Nose (Soft shadow 3D tip) -->
+    <path d="M99 87 L98 98 C98 100, 102 100, 102 98 Z" fill="#d98c64"/>
+
+    <!-- Friendly Smile -->
+    <path d="M90 106 C94 112, 106 112, 110 106" stroke="#873e23" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+    <path d="M93 107 C96 111, 104 111, 107 107" fill="#ffffff" opacity="0.8"/>
+  </g>
+
+  <!-- Modern Hair (Smart, Neutral University Cut) -->
+  <g>
+    <path d="M66 76 C66 45, 134 45, 134 76 C134 82, 132 87, 132 87 C128 66, 115 54, 100 54 C82 54, 70 66, 68 87 C68 87, 66 82, 66 76 Z" fill="url(#hairGradNeutral)"/>
+    <!-- Top Hair Volume -->
+    <path d="M68 64 C70 42, 88 34, 104 34 C122 34, 136 42, 134 66 C126 50, 112 44, 98 44 C84 44, 72 52, 68 64 Z" fill="#4b4b63"/>
+    <!-- Front Swoop -->
+    <path d="M72 60 C84 48, 108 50, 122 58 C112 56, 94 56, 82 66 Z" fill="#6366f1" opacity="0.3"/>
+  </g>
+
+  <!-- Bottom ID Card Tag Accent -->
+  <rect x="74" y="184" width="52" height="12" rx="4" fill="#0284c7" opacity="0.9"/>
+  <text x="100" y="193" font-family="'Inter', -apple-system, sans-serif" font-size="7.5" font-weight="800" fill="#ffffff" text-anchor="middle" letter-spacing="0.6">STUDENT</text>
+</svg>

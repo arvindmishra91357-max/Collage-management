@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%">
+  <defs>
+    <!-- Background studio glow -->
+    <radialGradient id="maleBg" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#1e293b"/>
+      <stop offset="60%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#020617"/>
+    </radialGradient>
+
+    <!-- 3D Face Tone -->
+    <radialGradient id="faceGradMale" cx="44%" cy="36%" r="56%">
+      <stop offset="0%" stop-color="#fed7aa"/>
+      <stop offset="60%" stop-color="#fba872"/>
+      <stop offset="100%" stop-color="#cf7140"/>
+    </radialGradient>
+
+    <!-- 3D Hair Texture -->
+    <linearGradient id="hairGradMale" x1="10%" y1="0%" x2="90%" y2="100%">
+      <stop offset="0%" stop-color="#2d221e"/>
+      <stop offset="50%" stop-color="#191311"/>
+      <stop offset="100%" stop-color="#090706"/>
+    </linearGradient>
+
+    <!-- Collegiate Navy Blazer/Hoodie -->
+    <linearGradient id="jacketGradMale" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e3a8a"/>
+      <stop offset="50%" stop-color="#172554"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+
+    <!-- Inner cyan collar -->
+    <linearGradient id="innerCyan" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#0284c7"/>
+    </linearGradient>
+
+    <!-- Soft Drop Shadows -->
+    <filter id="maleShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#000000" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="200" height="200" fill="url(#maleBg)"/>
+  <circle cx="100" cy="100" r="92" fill="none" stroke="#0284c7" stroke-width="1.5" stroke-opacity="0.3" stroke-dasharray="6 4"/>
+
+  <!-- Torso & Shoulders -->
+  <g filter="url(#maleShadow)">
+    <path d="M40 162 C44 135, 70 128, 100 128 C130 128, 156 135, 160 162 C162 176, 162 200, 162 200 L38 200 C38 200, 38 176, 40 162 Z" fill="url(#jacketGradMale)"/>
+    
+    <!-- White Collared Shirt -->
+    <path d="M84 128 L116 128 L108 156 C105 160, 95 160, 92 156 Z" fill="#f8fafc"/>
+    <path d="M98 136 L102 136 L102 165 L98 165 Z" fill="#e2e8f0"/>
+    
+    <!-- Cyan Lapels / Accents -->
+    <path d="M72 138 L88 168 L78 174 L64 145 Z" fill="url(#innerCyan)" opacity="0.85"/>
+    <path d="M128 138 L112 168 L122 174 L136 145 Z" fill="url(#innerCyan)" opacity="0.85"/>
+  </g>
+
+  <!-- Neck -->
+  <path d="M87 112 L113 112 L113 132 C106 136, 94 136, 87 132 Z" fill="#cf7140"/>
+
+  <!-- Head / Face Group -->
+  <g filter="url(#maleShadow)">
+    <!-- Ears -->
+    <ellipse cx="64" cy="92" rx="7.5" ry="11" fill="#fba872"/>
+    <ellipse cx="64" cy="92" rx="4" ry="7" fill="#cf7140" opacity="0.4"/>
+    <ellipse cx="136" cy="92" rx="7.5" ry="11" fill="#fba872"/>
+    <ellipse cx="136" cy="92" rx="4" ry="7" fill="#cf7140" opacity="0.4"/>
+
+    <!-- Jaw & Face Outline -->
+    <path d="M68 80 C68 54, 132 54, 132 80 C132 106, 116 124, 100 124 C84 124, 68 106, 68 80 Z" fill="url(#faceGradMale)"/>
+
+    <!-- Eyes (3D Specular Highlight) -->
+    <ellipse cx="84" cy="85" rx="4.5" ry="5.5" fill="#1e293b"/>
+    <circle cx="85.5" cy="83" r="1.8" fill="#ffffff"/>
+    <ellipse cx="116" cy="85" rx="4.5" ry="5.5" fill="#1e293b"/>
+    <circle cx="117.5" cy="83" r="1.8" fill="#ffffff"/>
+
+    <!-- Strong Confident Eyebrows -->
+    <path d="M76 77 C81 74, 88 74, 93 76" stroke="#2d221e" stroke-width="3" stroke-linecap="round" fill="none"/>
+    <path d="M107 76 C112 74, 119 74, 124 77" stroke="#2d221e" stroke-width="3" stroke-linecap="round" fill="none"/>
+
+    <!-- Nose -->
+    <path d="M100 84 L97 96 C97 98, 103 98, 103 96 Z" fill="#cf7140"/>
+
+    <!-- Confident Smile -->
+    <path d="M89 104 C94 110, 106 110, 111 104" stroke="#7c2d12" stroke-width="2.4" stroke-linecap="round" fill="none"/>
+    <path d="M92 105 C96 109, 104 109, 108 105" fill="#ffffff" opacity="0.9"/>
+  </g>
+
+  <!-- 3D Short Textured Male Hair -->
+  <g>
+    <path d="M66 74 C66 42, 86 32, 102 32 C120 32, 136 42, 134 74 C132 78, 130 84, 130 84 C126 62, 112 50, 100 50 C84 50, 72 62, 70 84 C70 84, 66 78, 66 74 Z" fill="url(#hairGradMale)"/>
+    <!-- Top Hair Tufts (3D Fade) -->
+    <path d="M72 58 C76 38, 92 28, 108 28 C124 28, 134 38, 132 58 C124 44, 110 38, 98 38 C84 38, 76 46, 72 58 Z" fill="#3d302a"/>
+    <path d="M84 36 C92 26, 108 26, 116 34 C108 30, 96 30, 84 36 Z" fill="#524037"/>
+  </g>
+
+  <!-- Bottom Tag -->
+  <rect x="74" y="184" width="52" height="12" rx="4" fill="#1e3a8a" opacity="0.95"/>
+  <text x="100" y="193" font-family="'Inter', -apple-system, sans-serif" font-size="7.5" font-weight="800" fill="#38bdf8" text-anchor="middle" letter-spacing="0.6">STUDENT</text>
+</svg>

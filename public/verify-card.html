@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Official Student ID Card Verification • MGI</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Outfit:wght@600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    :root {
+      --verify-navy: #0a1128;
+      --verify-cyan: #06b6d4;
+      --verify-blue: #0284c7;
+      --verify-card-bg: #0b132b;
+    }
+    
+    body {
+      background: linear-gradient(135deg, #020617 0%, #0b132b 50%, #0f172a 100%);
+      color: #f8fafc;
+      font-family: 'Inter', -apple-system, sans-serif;
+      min-height: 100vh;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .verify-page-wrap {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 24px 16px 48px;
+      width: 100%;
+      box-sizing: border-box;
+      flex: 1;
+    }
+
+    .verify-top-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+
+    .verify-brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .verify-crest-icon {
+      width: 44px;
+      height: 44px;
+      background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 16px rgba(2, 132, 199, 0.4);
+      flex-shrink: 0;
+    }
+
+    .verify-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      color: #ffffff;
+      margin: 0;
+      line-height: 1.2;
+    }
+
+    .verify-subtitle {
+      font-size: 12px;
+      color: #38bdf8;
+      font-weight: 600;
+      margin-top: 2px;
+      display: block;
+    }
+
+    .verify-status-banner {
+      border-radius: 16px;
+      padding: 16px 20px;
+      margin-bottom: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    .status-active {
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(6, 182, 212, 0.12) 100%);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+    }
+
+    .status-invalid {
+      background: linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(220, 38, 38, 0.25) 100%);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+    }
+
+    .status-suspended {
+      background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(217, 119, 6, 0.25) 100%);
+      border: 1px solid rgba(245, 158, 11, 0.4);
+    }
+
+    .verify-status-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .verify-status-pill {
+      font-size: 13px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 20px;
+    }
+
+    .pill-active {
+      background: rgba(16, 185, 129, 0.25);
+      color: #34d399;
+      border: 1px solid rgba(52, 211, 153, 0.5);
+    }
+
+    .pill-invalid {
+      background: rgba(239, 68, 68, 0.25);
+      color: #f87171;
+      border: 1px solid rgba(248, 113, 113, 0.5);
+    }
+
+    .pill-suspended {
+      background: rgba(245, 158, 11, 0.25);
+      color: #fbbf24;
+      border: 1px solid rgba(251, 191, 36, 0.5);
+    }
+
+    .verify-cards-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 32px;
+      flex-wrap: wrap;
+      margin: 24px 0 32px;
+    }
+
+    .verify-card-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .verify-card-col-label {
+      font-size: 12px;
+      font-weight: 800;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+
+    .verify-card-box {
+      width: 420px;
+      max-width: 90vw;
+      height: 265px;
+      position: relative;
+    }
+
+    @media (max-width: 480px) {
+      .verify-card-box {
+        width: 100%;
+        height: auto;
+        aspect-ratio: 85.6 / 53.98;
+      }
+    }
+
+    .verify-meta-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      padding: 20px;
+      margin-top: 32px;
+    }
+
+    .meta-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .meta-label {
+      font-size: 11px;
+      color: #94a3b8;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .meta-val {
+      font-size: 13px;
+      color: #f8fafc;
+      font-weight: 700;
+    }
+
+    .verify-footer {
+      text-align: center;
+      padding: 24px 16px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 12px;
+      color: #64748b;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <div class="verify-page-wrap">
+    <!-- Top Brand Header -->
+    <header class="verify-top-bar">
+      <div class="verify-brand">
+        <div class="verify-crest-icon">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#ffffff" stroke-width="2.2">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+          </svg>
+        </div>
+        <div>
+          <h1 class="verify-title">Mishra Group Institute of Technology</h1>
+          <span class="verify-subtitle">Official Student Identity Verification Portal</span>
+        </div>
+      </div>
+      <div>
+        <button class="btn btn-sec" onclick="window.print()" style="display:inline-flex; align-items:center; gap:6px; font-size:12px; padding:8px 16px; border-radius:8px;">
+          <span>🖨️</span> <span>Print Credential</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Dynamic Content Container -->
+    <div id="verify-content">
+      <div style="text-align:center; padding:60px 0;">
+        <div style="width:38px; height:38px; border:3px solid rgba(255,255,255,0.1); border-top-color:#06b6d4; border-radius:50%; animation:spin 0.8s linear infinite; margin:0 auto 16px;"></div>
+        <p style="font-size:14px; color:#94a3b8;">Verifying cryptographic security token...</p>
+      </div>
+    </div>
+  </div>
+
+  <footer class="verify-footer">
+    <div><strong>Mishra Group Institute of Technology</strong> • Dept of Computer Science & Engineering</div>
+    <div>Division 3CYBER7 • Academic Year 2026-27 • Campus Helpline: +91 94717 50496</div>
+    <div style="margin-top:6px; font-size:11px; color:#475569;">
+      🔒 End-to-end cryptographic token verification. Student credentials and private profile data remain strictly protected.
+    </div>
+  </footer>
+
+  <script src="/js/qrcode.min.js"></script>
+  <script src="/js/idCardApp.js"></script>
+  <script>
+    (async function initVerification() {
+      const container = document.getElementById('verify-content');
+      const urlParams = new URLSearchParams(window.location.search);
+      let code = urlParams.get('code');
+
+      // Also support pathname /verify/:code if rewritten
+      if (!code) {
+        const parts = window.location.pathname.split('/');
+        const lastPart = parts[parts.length - 1];
+        if (lastPart && lastPart !== 'verify' && lastPart !== 'verify-card.html') {
+          code = lastPart;
+        }
+      }
+
+      if (!code) {
+        container.innerHTML = `
+          <div class="verify-status-banner status-invalid">
+            <div class="verify-status-left">
+              <span class="verify-status-pill pill-invalid">⚠️ Missing Security Code</span>
+              <span style="font-size:13px; color:#fca5a5;">No verification token provided in URL. Please scan an authorized student ID card QR code.</span>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/id-cards/verify/${encodeURIComponent(code)}`);
+        const data = await res.json();
+
+        if (!res.ok || !data.valid) {
+          const isSuspended = data.status === 'SUSPENDED';
+          container.innerHTML = `
+            <div class="verify-status-banner ${isSuspended ? 'status-suspended' : 'status-invalid'}">
+              <div class="verify-status-left">
+                <span class="verify-status-pill ${isSuspended ? 'pill-suspended' : 'pill-invalid'}">
+                  ${isSuspended ? '⛔ Card Suspended' : '❌ Verification Failed'}
+                </span>
+                <span style="font-size:13px; color:#f8fafc;">
+                  ${data.message || 'No active institutional record matches this token. Card may be invalid or expired.'}
+                </span>
+              </div>
+            </div>
+            ${data.student ? `
+              <div class="verify-meta-grid" style="border-color:rgba(239,68,68,0.3);">
+                <div class="meta-item"><span class="meta-label">Student Name</span><span class="meta-val">${data.student.name || '--'}</span></div>
+                <div class="meta-item"><span class="meta-label">Enrollment UG ID</span><span class="meta-val" style="color:#38bdf8;">${data.student.ug_id || '--'}</span></div>
+                <div class="meta-item"><span class="meta-label">Recorded Status</span><span class="meta-val" style="color:#ef4444;">${data.status || 'SUSPENDED'}</span></div>
+              </div>
+            ` : ''}
+          `;
+          return;
+        }
+
+        // Card is Valid
+        const s = data.student || {};
+        const c = data.card || {};
+        const inst = data.institution || 'MISHRA GROUP INSTITUTE OF TECHNOLOGY';
+        const dept = data.department || 'Dept of Computer Science & Engineering';
+
+        // Student model adapter
+        const studentObj = {
+          name: s.name,
+          ug_id: s.ug_id,
+          batch: s.batch || 'Batch 1',
+          program: data.program || 'B.Tech Cyber Security',
+          division: data.division || '3CYBER7',
+          year: s.year || '2nd Year',
+          semester: s.semester || '3rd Semester',
+          academic_year: data.academic_year || '2026-27',
+          profile_photo_url: s.profile_photo_url || null,
+          gender: s.gender || null
+        };
+
+        const cardObj = {
+          card_number: c.card_number || `MGI-3CYBER7-${s.ug_id}`,
+          valid_until: c.valid_until || '2028-06-30',
+          issue_date: c.issue_date || '2026-08-01',
+          status: 'ACTIVE',
+          qr_verification_code: code
+        };
+
+        const qrId = `verify-qr-box-${s.ug_id || 'pub'}`;
+
+        container.innerHTML = `
+          <!-- Verified Status Banner -->
+          <div class="verify-status-banner status-active">
+            <div class="verify-status-left">
+              <span class="verify-status-pill pill-active">✅ Active & Verified</span>
+              <div>
+                <strong style="font-size:14px; color:#ffffff; display:block;">Authentic MGI Institutional Credential</strong>
+                <span style="font-size:12px; color:#94a3b8;">Cryptographically validated on ${new Date(data.verification_timestamp || Date.now()).toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' })}</span>
+              </div>
+            </div>
+            <div style="font-size:11px; color:#38bdf8; font-weight:700; background:rgba(6,182,212,0.15); padding:6px 12px; border-radius:8px; border:1px solid rgba(6,182,212,0.3);">
+              Division 3CYBER7 • B.Tech Cyber Security
+            </div>
+          </div>
+
+          <!-- Cards Preview Side-by-Side (Large & Fully Readable) -->
+          <div class="verify-cards-container">
+            <div class="verify-card-col">
+              <div class="verify-card-col-label">Front Side View</div>
+              <div class="verify-card-box">
+                ${IdCardSystem.renderCardFrontHTML(studentObj, cardObj)}
+              </div>
+            </div>
+            <div class="verify-card-col">
+              <div class="verify-card-col-label">Back Side View</div>
+              <div class="verify-card-box">
+                ${IdCardSystem.renderCardBackHTML(studentObj, cardObj, qrId)}
+              </div>
+            </div>
+          </div>
+
+          <!-- Security Metadata Details -->
+          <div class="verify-meta-grid">
+            <div class="meta-item"><span class="meta-label">Full Name</span><span class="meta-val">${s.name}</span></div>
+            <div class="meta-item"><span class="meta-label">Enrollment UG Number</span><span class="meta-val" style="color:#38bdf8; font-family:monospace; font-size:14px;">${s.ug_id}</span></div>
+            <div class="meta-item"><span class="meta-label">Card Number</span><span class="meta-val" style="font-family:monospace;">${c.card_number || '--'}</span></div>
+            <div class="meta-item"><span class="meta-label">Department</span><span class="meta-val">${dept}</span></div>
+            <div class="meta-item"><span class="meta-label">Program & Division</span><span class="meta-val">${data.program} • ${data.division}</span></div>
+            <div class="meta-item"><span class="meta-label">Assigned Batch</span><span class="meta-val">${s.batch}</span></div>
+            <div class="meta-item"><span class="meta-label">Valid Through</span><span class="meta-val" style="color:#22c55e;">${c.valid_until}</span></div>
+            <div class="meta-item"><span class="meta-label">Issuance Authority</span><span class="meta-val">Dr. A. K. Sharma (HOD CSE)</span></div>
+          </div>
+        `;
+
+        // Mount the live QR Code
+        IdCardSystem.mountQrCode(qrId, code);
+
+      } catch (err) {
+        container.innerHTML = `
+          <div class="verify-status-banner status-invalid">
+            <div class="verify-status-left">
+              <span class="verify-status-pill pill-invalid">⚠️ Connection Error</span>
+              <span style="font-size:13px; color:#f8fafc;">Unable to communicate with the verification server. Please check your internet connection and try again.</span>
+            </div>
+          </div>
+        `;
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -360,6 +360,11 @@ app.get('/api/id-cards/my-card', authenticateToken, requireStudent, idCardCtrl.g
 // Public instantaneous QR verification endpoint
 app.get('/api/id-cards/verify/:code', idCardCtrl.verifyCardByCode);
 
+// Public mobile-friendly card verification page route for camera scans
+app.get('/verify/:code', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'verify-card.html'));
+});
+
 // Faculty / HOD / Admin viewing with RBAC boundary enforcement
 app.get('/api/id-cards', authenticateToken, requireTeacherOrAdmin, idCardCtrl.getAllIdCards);
 app.get('/api/id-cards/all', authenticateToken, requireTeacherOrAdmin, idCardCtrl.getAllIdCards);

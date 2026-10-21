@@ -4410,25 +4410,65 @@ input:-webkit-autofill:active {
 }
 
 /* ==========================================================================
-   OFFICIAL STUDENT ID CARD MANAGEMENT SYSTEM - COMPONENT & PRINT STYLES
+   OFFICIAL STUDENT ID CARD MANAGEMENT SYSTEM - PREMIUM REDESIGN
    ========================================================================== */
 
-/* ID Card Container & Flip Showcase */
+/* ID Card Showcase & Large Preview Container */
 .id-card-showcase {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 20px;
-  margin: 16px 0;
+  gap: 22px;
+  width: 100%;
+  margin: 12px 0;
 }
 
-.id-card-flip-wrap {
-  perspective: 1200px;
-  width: 360px;
+.id-card-side-by-side {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.id-card-preview-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
   max-width: 100%;
-  height: 228px;
+}
+
+.id-card-side-label {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #38bdf8;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* 3D Flip Card Container (Large Desktop ID-1 Proportions: 440px x 278px) */
+.id-card-flip-wrap {
+  perspective: 1400px;
+  width: 440px;
+  max-width: 100%;
+  height: 278px;
   position: relative;
   cursor: pointer;
+  border-radius: 16px;
+}
+
+@media (max-width: 480px) {
+  .id-card-flip-wrap {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 85.6 / 53.98;
+    min-height: 220px;
+  }
 }
 
 .id-card-flipper {
@@ -4436,88 +4476,118 @@ input:-webkit-autofill:active {
   height: 100%;
   position: relative;
   transform-style: preserve-3d;
-  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.65s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 16px;
 }
 
 .id-card-flip-wrap.flipped .id-card-flipper {
   transform: rotateY(180deg);
 }
 
-/* Base Physical ID Card Structure (ID-1 Standard Ratio 85.6mm x 53.98mm) */
+/* Base Physical ID Card Structure (ISO/IEC 7810 ID-1 Standard 85.6mm x 53.98mm) */
 .mgi-id-card {
   width: 100%;
   height: 100%;
   position: absolute;
   top: 0;
   left: 0;
-  border-radius: 14px;
+  border-radius: 16px;
   backface-visibility: hidden;
-  box-shadow: 0 16px 36px -8px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  box-shadow: 0 20px 45px -10px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.12);
   overflow: hidden;
   display: flex;
   flex-direction: column;
   user-select: none;
-  background: #0b1120;
+  background: #070d1e;
   color: #ffffff;
+  box-sizing: border-box;
+}
+
+/* Static Non-Flipped Card Container (for Side-by-Side View) */
+.mgi-id-card-static {
+  position: relative !important;
+  width: 430px;
+  max-width: 100%;
+  height: 272px;
+  border-radius: 16px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 18px 40px -10px rgba(0, 0, 0, 0.65), 0 0 0 1.5px rgba(6, 182, 212, 0.3);
+  box-sizing: border-box;
+}
+
+@media (max-width: 480px) {
+  .mgi-id-card-static {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 85.6 / 53.98;
+    min-height: 220px;
+  }
 }
 
 /* Front Face */
 .mgi-id-card-front {
   transform: rotateY(0deg);
-  background: linear-gradient(145deg, #0f172a 0%, #0a0f1d 60%, #1e1b4b 100%);
-  border: 1px solid rgba(56, 189, 248, 0.25);
+  background: linear-gradient(135deg, #070d1e 0%, #0c1a3b 45%, #081126 100%);
+  border: 1.5px solid rgba(6, 182, 212, 0.4);
 }
 
 /* Back Face */
 .mgi-id-card-back {
   transform: rotateY(180deg);
-  background: linear-gradient(145deg, #090d16 0%, #0f172a 100%);
-  border: 1px solid rgba(147, 51, 234, 0.25);
-  padding: 14px 16px;
+  background: linear-gradient(135deg, #070d1e 0%, #0c1a3b 50%, #081126 100%);
+  border: 1.5px solid rgba(6, 182, 212, 0.4);
+  padding: 14px 18px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
 }
 
+.mgi-id-card-static.mgi-id-card-back {
+  transform: none !important;
+}
+
 /* Card Header Banner */
 .id-card-header {
-  background: linear-gradient(90deg, #1e3a8a 0%, #0284c7 60%, #0369a1 100%);
-  padding: 7px 12px;
+  background: linear-gradient(90deg, #0a192f 0%, #0284c7 50%, #0369a1 100%);
+  padding: 9px 14px;
   display: flex;
   align-items: center;
-  gap: 9px;
-  border-bottom: 2px solid #38bdf8;
+  gap: 12px;
+  border-bottom: 2px solid #06b6d4;
   position: relative;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
 }
 
 .id-card-crest {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   background: #ffffff;
-  border-radius: 6px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35);
   flex-shrink: 0;
 }
 
 .id-card-inst-title {
-  font-family: var(--font-heading);
-  font-size: 10px;
+  font-family: 'Outfit', var(--font-heading);
+  font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.6px;
   text-transform: uppercase;
   color: #ffffff;
-  line-height: 1.15;
+  line-height: 1.2;
   margin: 0;
 }
 
 .id-card-dept-sub {
-  font-size: 8px;
-  color: #bae6fd;
+  font-size: 8.5px;
+  color: #7dd3fc;
   font-weight: 700;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.5px;
   text-transform: uppercase;
   display: block;
 }
@@ -4526,36 +4596,36 @@ input:-webkit-autofill:active {
 .id-card-body {
   flex: 1;
   display: flex;
-  padding: 10px 12px;
-  gap: 12px;
+  padding: 12px 14px;
+  gap: 14px;
   position: relative;
   align-items: center;
 }
 
 .id-card-watermark {
   position: absolute;
-  right: 10px;
-  bottom: 6px;
-  opacity: 0.05;
+  right: 12px;
+  bottom: 8px;
+  opacity: 0.04;
   pointer-events: none;
-  font-size: 110px;
-  font-family: var(--font-heading);
+  font-size: 130px;
+  font-family: 'Outfit', var(--font-heading);
   font-weight: 900;
   line-height: 1;
-  color: #ffffff;
+  color: #38bdf8;
 }
 
-/* Photo Box */
+/* Photo Box with 3D Avatar Fallback */
 .id-card-photo-box {
-  width: 68px;
-  height: 82px;
-  border-radius: 8px;
-  border: 2px solid #38bdf8;
+  width: 82px;
+  height: 104px;
+  border-radius: 12px;
+  border: 2px solid #06b6d4;
   overflow: hidden;
-  background: #1e293b;
+  background: #0f172a;
   flex-shrink: 0;
   position: relative;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5), 0 0 12px rgba(6, 182, 212, 0.25);
 }
 
 .id-card-photo {
@@ -4563,6 +4633,7 @@ input:-webkit-autofill:active {
   height: 100%;
   object-fit: cover;
   display: block;
+  background: #0f172a;
 }
 
 .id-card-batch-tag {
@@ -4570,14 +4641,14 @@ input:-webkit-autofill:active {
   bottom: 0;
   left: 0;
   right: 0;
-  background: rgba(14, 165, 233, 0.9);
+  background: linear-gradient(90deg, #0284c7, #06b6d4);
   color: #ffffff;
-  font-size: 7.5px;
+  font-size: 8px;
   font-weight: 800;
   text-align: center;
-  padding: 2px 0;
+  padding: 2.5px 0;
   text-transform: uppercase;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.5px;
 }
 
 /* Details Section */
@@ -4587,50 +4658,67 @@ input:-webkit-autofill:active {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 2.5px;
+  gap: 3px;
 }
 
 .id-card-name {
-  font-family: var(--font-heading);
-  font-size: 12.5px;
+  font-family: 'Outfit', var(--font-heading);
+  font-size: 15px;
   font-weight: 800;
-  color: #f8fafc;
-  line-height: 1.15;
+  color: #ffffff;
+  line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  letter-spacing: 0.2px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
 }
 
-.id-card-ugid-badge {
+/* Prominent Cyan-Outlined UG ID Badge */
+.id-card-ugid-badge-wrap {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  background: rgba(56, 189, 248, 0.15);
-  border: 1px solid rgba(56, 189, 248, 0.4);
-  color: #38bdf8;
-  font-size: 9px;
-  font-weight: 800;
-  padding: 1px 6px;
-  border-radius: 4px;
+  gap: 6px;
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.16) 0%, rgba(2, 132, 199, 0.26) 100%);
+  border: 1.5px solid #06b6d4;
+  box-shadow: 0 0 10px rgba(6, 182, 212, 0.25);
+  padding: 2px 10px;
+  border-radius: 6px;
   width: fit-content;
-  letter-spacing: 0.4px;
-  font-family: monospace;
+  margin: 2px 0 4px;
+}
+
+.id-card-ugid-label {
+  font-size: 8px;
+  font-weight: 800;
+  color: #67e8f9;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+.id-card-ugid-number {
+  font-size: 13px;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: 0.8px;
+  font-family: 'Inter', monospace;
 }
 
 .id-card-info-grid {
   display: grid;
   grid-template-columns: auto 1fr;
-  column-gap: 6px;
-  row-gap: 1.5px;
-  font-size: 9px;
-  margin-top: 2px;
-  line-height: 1.25;
+  column-gap: 8px;
+  row-gap: 2.5px;
+  font-size: 10.5px;
+  line-height: 1.3;
 }
 
 .id-card-lbl {
   color: #94a3b8;
   font-weight: 600;
+  text-transform: uppercase;
+  font-size: 8.5px;
+  letter-spacing: 0.4px;
 }
 
 .id-card-val {
@@ -4643,9 +4731,9 @@ input:-webkit-autofill:active {
 
 /* Card Footer */
 .id-card-footer {
-  background: rgba(15, 23, 42, 0.95);
-  padding: 5px 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(8, 14, 32, 0.95);
+  padding: 7px 14px;
+  border-top: 1px solid rgba(6, 182, 212, 0.2);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -4653,7 +4741,7 @@ input:-webkit-autofill:active {
 }
 
 .id-card-validity {
-  font-size: 8px;
+  font-size: 9px;
   color: #94a3b8;
   font-weight: 600;
 }
@@ -4670,18 +4758,20 @@ input:-webkit-autofill:active {
 }
 
 .id-card-sign-text {
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 800;
-  color: #cbd5e1;
+  color: #e2e8f0;
   letter-spacing: 0.2px;
-  border-top: 1px dashed rgba(255, 255, 255, 0.3);
-  padding-top: 1px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.35);
+  padding-top: 2px;
 }
 
-/* QR Code & Barcode on Back */
+/* ==========================================================================
+   BACK FACE DESIGN (Single Clean QR Code, No Duplicates, No Barcode)
+   ========================================================================== */
 .id-card-back-header {
-  border-bottom: 1px dashed rgba(255, 255, 255, 0.15);
-  padding-bottom: 6px;
+  border-bottom: 1px dashed rgba(6, 182, 212, 0.3);
+  padding-bottom: 8px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -4690,59 +4780,122 @@ input:-webkit-autofill:active {
 .id-card-back-grid {
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 10px;
+  gap: 16px;
   align-items: center;
-  margin: 6px 0;
+  margin: 10px 0;
+  flex: 1;
 }
 
 .id-card-instructions {
-  font-size: 7.5px;
+  font-size: 8.5px;
   color: #94a3b8;
-  line-height: 1.35;
+  line-height: 1.45;
   margin: 0;
-  padding-left: 12px;
+  padding-left: 14px;
 }
 
 .id-card-instructions li {
-  margin-bottom: 2px;
+  margin-bottom: 4px;
 }
 
+/* Single Sharp QR Code Container on Back */
 .id-card-qr-box {
-  width: 64px;
-  height: 64px;
+  width: 84px;
+  height: 84px;
   background: #ffffff;
-  padding: 3px;
-  border-radius: 6px;
+  padding: 4px;
+  border-radius: 10px;
+  border: 2px solid #06b6d4;
+  box-shadow: 0 0 14px rgba(6, 182, 212, 0.35), 0 4px 10px rgba(0, 0, 0, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  box-sizing: border-box;
 }
 
-.id-card-barcode-wrap {
+.id-card-qr-box canvas,
+.id-card-qr-box img,
+.id-card-qr-box svg {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+}
+
+.id-card-qr-label {
+  font-size: 7px;
+  font-weight: 800;
+  color: #38bdf8;
   text-align: center;
-  background: rgba(255, 255, 255, 0.03);
-  padding: 4px;
-  border-radius: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-top: 4px;
 }
 
-.id-card-barcode-lines {
-  height: 24px;
-  width: 100%;
+.id-card-back-footer {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 6px;
+  font-size: 8px;
+  color: #64748b;
+  text-align: center;
+  line-height: 1.35;
+}
+
+/* ==========================================================================
+   LARGE PREVIEW MODAL
+   ========================================================================== */
+.id-card-large-modal {
+  max-width: 960px !important;
+  width: 95% !important;
+  max-height: 92vh !important;
+  overflow-y: auto !important;
+  background: rgba(11, 19, 43, 0.96) !important;
+  border: 1.5px solid rgba(6, 182, 212, 0.35) !important;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8), 0 0 30px rgba(6, 182, 212, 0.2) !important;
+  border-radius: 20px !important;
+  padding: 24px !important;
+  box-sizing: border-box;
+}
+
+.id-card-modal-toolbar {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 2px;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 14px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
 }
 
-.id-card-barcode-txt {
-  font-family: monospace;
-  font-size: 8px;
+.id-card-view-tabs {
+  display: inline-flex;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 3px;
+  gap: 4px;
+}
+
+.id-card-tab-btn {
+  background: transparent;
+  border: none;
   color: #94a3b8;
-  letter-spacing: 1px;
-  margin-top: 1px;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 6px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.id-card-tab-btn.active {
+  background: #0284c7;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.4);
 }
 
 /* Grid for HOD/Faculty Roster View */
@@ -4825,6 +4978,7 @@ input:-webkit-autofill:active {
   .sidebar-header,
   .offline-banner,
   .id-card-actions-bar,
+  .id-card-modal-toolbar,
   #offline-status-banner {
     display: none !important;
   }
@@ -4844,7 +4998,7 @@ input:-webkit-autofill:active {
     print-color-adjust: exact !important;
   }
 
-  /* Batch Print Sheet (A4 Grid of 8 ID Cards) */
+  /* Batch Print Sheet (A4 Grid of ID Cards) */
   .id-card-batch-print-sheet {
     display: grid !important;
     grid-template-columns: repeat(2, 85.6mm) !important;
@@ -4867,5 +5021,6 @@ input:-webkit-autofill:active {
     print-color-adjust: exact !important;
   }
 }
+
 
 
